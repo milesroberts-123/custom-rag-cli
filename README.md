@@ -6,6 +6,7 @@ playing around with ollama and llama index to pass files to an LLM
 
 ```bash
 # submit interactive job with gpu
+# ENSURE THAT YOU REQUEST THE CORRECT NUMBER OF CPUS PER GPU
 srun --pty -A co_moilab -p savio4_gpu --qos savio_lowprio --gpus-per-task 1 --cpus-per-task 4 --ntasks 1 -t 01:00:00 bash -i
 
 # activate ollama software and extra llama index needs
