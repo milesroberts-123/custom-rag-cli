@@ -4,6 +4,9 @@ from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
 from llama_index.core.agent.workflow import AgentWorkflow
 from llama_index.llms.ollama import Ollama
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.core.prompts import PromptTemplate
+from llama_index.core import Document
+from llama_index.embeddings.ollama import OllamaEmbedding
 import asyncio
 import os
 import click
@@ -17,43 +20,82 @@ import click
 @click.option('--files', default="papers", help='Path to directory of files')
 @click.option('--query', default="What is the main theme of the documents?", help='Prompt for lmm')
 @click.option('--model', default="gemma3:1b", help='Model to run')
+@click.option('--temp', default=0, help='Temperature')
+@click.option('--topk', default=3, help='Similarity search cutoff')
+#@click.option('--context-window', default=2000, help='Number of tokens model should include in context window')
+
 #def cli(files, query, model):
     #main(files, query, model)
     #asyncio.run(main(files, query))
 
 # Now we can ask questions about the documents or do calculations
 # https://developers.llamaindex.ai/python/framework/getting_started/starter_example_local/#adding-rag-capabilities
-def main(files, query, model):
+def main(files, query, model, temp, topk):
     # print params
     click.echo(f"Input parameters received:")
     click.echo(f"  files: {files}")
     click.echo(f"  query: {query}")
     click.echo(f"  model: {model}")
+    click.echo(f"  temp : {temp}")
+    click.echo(f"  topk : {topk}")
+    #click.echo(f"  context_window: {context_window}")
     click.echo("-" * 20)
 
     # Settings control global defaults
     print("Setting embeddings...")
-    Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-base-en-v1.5")
+    #Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-base-en-v1.5")
+    Settings.embed_model = OllamaEmbedding(model_name="nomic-embed-text:v1.5")
 
     print("Setting llm...")
     Settings.llm = Ollama(
         model=model,
         request_timeout=600.0,
+        temperature = temp,
         # Manually set the context window to limit memory usage
-        context_window=1024,
+        # context_window=context_window,
     )
 
     # Create a RAG tool using LlamaIndex
     print("Loading files...")
-    documents = SimpleDirectoryReader(files).load_data()
+    #docs = SimpleDirectoryReader(files).load_data()
+    docs = []
+    with open(files) as f:
+        blocks = f.read().split("\n\n")
+        for block in blocks:
+            #print("new block!")
+            #print(block)
+            docs.append(Document(text=block))
+
     print("Creating vector store...")
-    index = VectorStoreIndex.from_documents(documents)
+    index = VectorStoreIndex.from_documents(docs)
     print("Creating query engine...")
-    query_engine = index.as_query_engine(streaming=True)
+    qa_prompt = PromptTemplate(
+        """
+        You are answering questions using ONLY the provided document.
+        If the answer is not present, say "NOT FOUND"
+        
+        Question: {query_str}
+        
+        Context: {context_str}
+        
+        Answer:
+        """
+    )
+
+    query_engine = index.as_query_engine(similarity_top_k=topk, text_qa_template=qa_prompt, streaming=True)
 
     print("Generating response...")
     response = query_engine.query(query)
     response.print_response_stream()
+
+    #print("\nSupporting text portions:")
+    #for node in response.source_nodes:
+    #    print("----")
+    #    print(node.node.text)
+
+    print("\n")
+
+
 
 # Run the agent
 if __name__ == "__main__":
