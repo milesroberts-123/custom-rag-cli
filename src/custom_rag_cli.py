@@ -10,6 +10,7 @@ from llama_index.embeddings.ollama import OllamaEmbedding
 import asyncio
 import os
 import click
+import re
 
 #async def search_documents(query: str) -> str:
 #    """Useful for answering natural language questions about documents."""
@@ -64,14 +65,16 @@ def main(files, query, model, temp, topk):
         for block in blocks:
             #print("new block!")
             #print(block)
-            docs.append(Document(text=block))
+            if re.search("SAMN04910988",block):
+                print(block)
+                docs.append(Document(text=block))
 
     print("Creating vector store...")
     index = VectorStoreIndex.from_documents(docs)
     print("Creating query engine...")
     qa_prompt = PromptTemplate(
         """
-        You are answering questions using ONLY the provided document.
+        You are answering questions using ONLY the provided documents.
         If the answer is not present, say "NOT FOUND"
         
         Question: {query_str}
