@@ -17,6 +17,25 @@ rule fetch_biosamples:
         "../scripts/fetch_biosample.py"
 
 
+rule fetch_sra_metadata:
+    input:
+        samples=config["samples"],
+    output:
+        expand("resources/sra/{run}.json", run=RUNS),
+    log:
+        "logs/fetch_sra_metadata.log",
+    conda:
+        "../envs/ncbi.yaml"
+    params:
+        runs=RUNS,
+        email=config["ncbi"]["email"],
+        api_key_env=config["ncbi"]["api_key_env"],
+        batch_size=config["ncbi"]["sra_batch_size"],
+        max_retries=config["ncbi"]["max_retries"],
+    script:
+        "../scripts/fetch_sra_metadata.py"
+
+
 rule fetch_papers:
     input:
         samples=config["samples"],

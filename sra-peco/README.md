@@ -1,21 +1,24 @@
 # sra-peco
 
-Snakemake workflow that labels SRA RNA-seq samples with plant tissue categories
-and terms from the [Plant Experimental Conditions Ontology
+Snakemake workflow that labels SRA RNA-seq samples with plant tissue categories,
+germplasm types, and terms from the [Plant Experimental Conditions Ontology
 (PECO)](https://www.ebi.ac.uk/ols4/ontologies/peco).
 
 ## Pipeline
 
 1. Fetch BioSample records (attributes, organism) from NCBI.
-2. Resolve each BioProject to a PubMed ID. Projects without a linked
+2. Fetch SRA run metadata: experiment title, library name, sample name, study
+   title/abstract, and SRA sample attributes.
+3. Resolve each BioProject to a PubMed ID. Projects without a linked
    publication are skipped.
-3. Fetch open-access full text (or the abstract) from Europe PMC.
-4. Summarize the paper's experimental conditions once per BioProject.
-5. Label each run's tissue category from BioSample metadata, using a rules
-   pass, then the `tev1` decision model, then a chat fallback.
-6. Retrieve candidate PECO terms and let a chat model select the ones that
-   describe the sample's conditions.
-7. Aggregate everything into `results/labels.tsv`.
+4. Fetch open-access full text (or the abstract) from Europe PMC.
+5. Summarize the paper's experimental conditions once per BioProject.
+6. Label each run's tissue category.
+7. Classify each run's germplasm: natural accession, mutant, transgenic, hybrid,
+   grafted, cell culture, polyploid, aneuploid, or unknown.
+8. Label plant exposure PECO terms from the `PECO:0001001` branch.
+9. Label the PECO plant study condition from the `PECO:0007231` branch.
+10. Aggregate everything into `results/labels.tsv`.
 
 ## Inputs
 
@@ -26,8 +29,8 @@ run	biosample	bioproject	species
 SRR41450469	SAMN64520521	PRJNA1552792	Arabidopsis thaliana
 ```
 
-`config/config.yaml` — workflow parameters. Replace `tissue.categories` and
-`tissue.keywords` with your six tissue categories before running.
+`config/config.yaml` — workflow parameters, including tissue categories,
+germplasm patterns, model names, and review thresholds.
 
 ## Models
 
@@ -36,36 +39,92 @@ The default stack runs against one local Ollama server:
 | Step | Model | Endpoint |
 |---|---|---|
 | Tissue | `tev1:4b` | `/v1/systemone` (decision) |
-| Tissue fallback | `qwen3.8` | `/v1/chat/completions` |
-| PECO | `qwen3.8` | `/v1/chat/completions` |
+| Germplasm | `tev1:4b` | `/v1/systemone` (decision) |
+| Study condition | `tev1:4b` | `/v1/systemone` (decision) |
+| Exposure | `qwen3.8` | `/v1/chat/completions` |
 | Paper summary | `qwen3.8` | `/v1/chat/completions` |
 
-`config/config.yaml` sets `ollama.server_url` and `ollama.api_key`. The
-`OLLAMA_SERVER` and `OLLAMA_API_KEY` environment variables override them; the
-Savio wrapper uses that to point at the model-server job.
+Each decision step falls back to the chat model if the decision endpoint
+fails. `config/config.yaml` sets `ollama.server_url` and `ollama.api_key`; the
+`OLLAMA_SERVER` and `OLLAMA_API_KEY` environment variables override them.
 
-Tev1's decision endpoint requires Ollama 0.35 or newer. This workflow targets
-Ollama 0.40.11.
+Tev1 requires Ollama 0.35 or newer. This workflow targets Ollama 0.40.11.
 
-## Review flags
+## Germplasm categories
 
-`results/labels.tsv` contains `review_required` and `review_reasons`. A row is
-flagged when any of these hold:
+The germplasm step mirrors the manual filtering in the paper: natural
+accessions are retained, and modified lines are flagged for downstream
+filtering. Every run stays in the workflow; `is_natural_accession` is the
+filter column.
 
-- tissue is `OTHER` or the BioSample had no usable tissue attribute
-- Tev1 confidence is below `review.tissue_confidence`
-- PECO returned `other` (a condition exists but no candidate fits)
-- the top PECO retrieval score is below `review.peco_retrieval_score`
-- the project has no paper (`no_paper`)
-- the paper summary is abstract-only or low confidence (`paper_low_confidence`)
+- `natural_accession`
+- `mutant`
+- `transgenic`
+- `hybrid`
+- `grafted`
+- `cell_culture`
+- `polyploid`
+- `aneuploid`
+- `unknown`
 
-`review_reasons` uses the codes `tissue_other`, `tissue_low_confidence`,
-`peco_other`, `peco_weak_retrieval`, `no_paper`, and `paper_low_confidence`.
+Rules first (SALK/SAIL/GABI/CS identifiers, 35S/GFP/GUS/RNAi/CRISPR markers,
+etc.), then the Tev1 decision model, then the chat fallback.
+
+## Two PECO layers
+
+The workflow follows PECO's actual branches:
+
+- **Plant exposure** (`PECO:0001001`): 511 terms including cold, high
+  temperature, light, drought, control exposure, and growth-medium exposures.
+  Retrieval selects candidates, and the chat model can return multiple terms.
+- **Plant study condition** (`PECO:0007231`): four terms — greenhouse study,
+  laboratory study, field study, growth chamber study — plus `OTHER`.
+
+Because agar plates and hydroponics are PECO growth-medium **exposure** terms,
+``results/labels.tsv`` also derives `growth_system_ids` / `growth_system_labels`
+from exposure terms under `PECO:0007147`. That keeps those systems visible
+without inventing a third PECO branch.
+
+The exposure prompt uses the paper's annotation conventions: control is
+long-day (≥12 h light, not constant), 18–26 °C, no stress or nutrient
+limitation; high temperature is ≥27 °C; cold is ≤17 °C; short day is <12 h
+light; PEG counts as drought; recovery samples are labeled by the recovery
+condition.
+
+If a condition exists but no candidate fits, the exposure layer returns
+`other: true` with a free-text `suggested_label` for review. `unknown`/`OTHER`
+is also used for germplasm and study condition when the evidence is
+insufficient.
+
+## Tissue categories
+
+The paper's categories, with flower and fruit separated:
+
+`whole_plant`, `shoot`, `root`, `leaf`, `seed`, `flower`, `fruit`, plus `OTHER`.
+
+## Output
+
+`results/labels.tsv` contains:
+
+- `run`, `biosample`, `bioproject`, `species`
+- `tissue`, `tissue_source`, `tissue_confidence`
+- `germplasm_type`, `is_natural_accession`, `germplasm_confidence`,
+  `germplasm_evidence`
+- `peco_exposure_ids`, `peco_exposure_labels`, `peco_exposure_evidence`,
+  `peco_exposure_other`, `peco_exposure_max_score`
+- `peco_study_id`, `peco_study_label`, `peco_study_confidence`
+- `growth_system_ids`, `growth_system_labels`
+- `has_paper`, `paper_low_confidence`
+- `review_required`, `review_reasons`
+
+Review reasons: `tissue_other`, `tissue_low_confidence`, `germplasm_unknown`,
+`germplasm_low_confidence`, `exposure_other`, `exposure_weak_retrieval`,
+`study_other`, `study_low_confidence`, `no_paper`, `paper_low_confidence`.
 
 ## Requirements
 
 - Snakemake 9.x and Conda/Mamba for the per-rule environments
-- Ollama 0.40.11 (for Tev1)
+- Ollama 0.40.11
 - Models pulled: `qwen3.8` and `tev1:4b`
 
 ## Local run
@@ -128,6 +187,26 @@ scratch.
 If compute-node networking is blocked, `run.sh` exits with a clear error. In
 that case the fallback is per-rule GPU jobs, which reload the models per job.
 
+## Validation
+
+There is no automated gold set. Manual spot-check 30–50 stratified runs:
+
+- 10 natural accessions, 10 mutants, 10 transgenics, 5 other non-natural
+- 10 with a paper, 10 without
+- 10 clear exposures, 10 ambiguous or control
+- 10 study conditions stated, 10 unstated
+- all seven tissue categories represented
+
+Record expected values in a table with `run`, `expected_tissue`,
+`expected_germplasm`, `natural_accession`, `expected_exposure_ids`,
+`expected_study_id`, `expected_growth_system`, and `notes`. Track exact and
+ancestor PECO agreement, set overlap for multiple exposures, tissue agreement,
+and the false-natural rate. A mutant labeled `natural_accession` is the most
+costly error.
+
+Supplementary Table S5 from the paper is a useful optional cross-check, but it
+is not part of the automated validation.
+
 ## Commit checks
 
 Install the hooks once per clone:
@@ -139,4 +218,4 @@ pre-commit install
 
 The hooks run `snakefmt --check` and `snakemake --lint` on `sra-peco/` changes.
 `.github/workflows/sra-peco-ci.yml` repeats both checks on push and pull
-request, plus a `snakemake -n` dry run, scoped to `sra-peco/**`.
+request, plus a `snakemake -n` dry run.

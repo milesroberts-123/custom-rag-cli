@@ -1,9 +1,11 @@
 """Assign one of the configured tissue categories to a sample."""
 
 import json
+import re
 import sys
 from pathlib import Path
 
+from evidence import evidence_lines
 from llm import chat_json, make_client, systemone
 
 OTHER = "OTHER"
@@ -13,7 +15,7 @@ SYSTEM = (
     "Return only a JSON object."
 )
 
-PROMPT = """Sample attributes from NCBI BioSample:
+PROMPT = """Sample evidence (BioSample, SRA metadata, paper):
 {attributes}
 
 Paper conditions:
@@ -28,26 +30,16 @@ Return JSON: {{"category": "<allowed category or OTHER>", "evidence": "short rea
 """
 
 
-def _attribute_values(attributes, keys):
-    values = []
-    seen = set()
-    for name, value in attributes.items():
-        if any(key.lower() in name.lower() for key in keys):
-            entry = f"{name}: {value}"
-            if entry not in seen:
-                values.append(entry)
-                seen.add(entry)
-    return values
-
-
 def _rules_category(values, categories, keywords):
-    text = " | ".join(values).lower()
-    hits = [
-        category
-        for category in categories
-        if any(keyword.lower() in text for keyword in keywords.get(category, []))
-    ]
+    text = " | ".join(values)
+    hits = []
+    for category in categories:
+        for keyword in keywords.get(category, []):
+            if re.search(rf"\b{re.escape(keyword)}\b", text, flags=re.IGNORECASE):
+                hits.append(category)
+                break
     return hits[0] if len(hits) == 1 else None
+
 
 
 def _state(biosample, summary, values):
@@ -111,14 +103,17 @@ def _chat(client, model, model_params, values, summary, categories, other_descri
 def main():
     with open(snakemake.input.biosample) as handle:
         biosample = json.load(handle)
+    with open(snakemake.input.sra) as handle:
+        sra = json.load(handle)
     with open(snakemake.input.summary) as handle:
         summary = json.load(handle)
 
     categories = list(snakemake.params.categories)
     keywords = dict(snakemake.params.keywords)
-    values = _attribute_values(
-        biosample.get("attributes", {}), list(snakemake.params.attribute_keys)
+    values = evidence_lines(
+        biosample, sra, summary, list(snakemake.params.attribute_keys)
     )
+
 
     confidence = None
     probabilities = None

@@ -1,10 +1,11 @@
-"""Assign PECO terms to a sample using candidate retrieval and an LLM."""
+"""Assign plant exposure PECO terms to a sample using retrieval and an LLM."""
 
 import json
 import re
 from pathlib import Path
 
 import numpy as np
+from evidence import evidence_lines
 from llm import chat_json, make_client
 from sentence_transformers import SentenceTransformer
 
@@ -16,25 +17,28 @@ SYSTEM = (
 PROMPT = """Sample and paper evidence:
 {evidence}
 
-Candidate PECO terms (ID | label | definition):
+Candidate PECO plant exposure terms (ID | label | definition):
 {candidates}
 
-Select the PECO term(s) that describe the experimental conditions of this sample.
-Rules:
-- Use only term IDs from the candidate list.
-- Prefer the most specific term(s). Multiple terms are allowed.
-- Every selected term needs a short evidence string.
-- If the sample has no experimental condition to annotate, return an empty list
+Select the PECO plant exposure term(s) that describe the experimental
+conditions of this sample. Use only term IDs from the candidate list.
+
+Annotation guidance:
+- control exposure: long-day (>= 12 h light, not constant), 18-26 C, with no
+  explicit stress or nutrient limitation.
+- high temperature: >= 27 C; cold: <= 17 C; short day: < 12 h light.
+- PEG treatment counts as drought exposure.
+- Samples recovering from stress are labeled by the recovery condition.
+- Multiple exposure terms are allowed when several stresses apply.
+- If the sample has no experimental exposure to annotate, return an empty list
   with "no_condition": true.
-- If a condition exists but no candidate term fits, return an empty list with
-  "other": true.
+- If an exposure exists but no candidate fits, return an empty list with
+  "other": true and put a short free-text label in "suggested_label".
 - "other" and "no_condition" are mutually exclusive and must not be combined
   with selected terms.
 
-Return JSON: {{"terms": [{{"term_id": "PECO:...", "label": "...", "evidence": "..."}}], "no_condition": false, "other": false}}
+Return JSON: {{"terms": [{{"term_id": "PECO:...", "label": "...", "evidence": "..."}}], "no_condition": false, "other": false, "suggested_label": null}}
 """
-
-CONDITION_KEYS = ("genotype", "treatment", "growth_conditions", "tissue_sampled", "stress")
 
 
 def _load_index(index_dir):
@@ -45,47 +49,41 @@ def _load_index(index_dir):
     return terms, synonyms, embeddings
 
 
-def _query_text(biosample, summary):
-    lines = [
-        f"{name}: {value}"
-        for name, value in sorted(biosample.get("attributes", {}).items())
-    ]
-    if biosample.get("organism"):
-        lines.append(f"organism: {biosample['organism']}")
-    conditions = summary.get("conditions") or {}
-    for key in CONDITION_KEYS:
-        if conditions.get(key):
-            lines.append(f"paper_{key}: {conditions[key]}")
-    return "\n".join(lines)
+def _query_text(biosample, sra, summary):
+    return "\n".join(evidence_lines(biosample, sra, summary))
 
 
-def _lexical_hits(query_text, synonyms):
+def _lexical_hits(query_text, synonyms, allowed_ids):
     lowered = query_text.lower()
     hits = []
     for phrase, term_ids in synonyms.items():
         if re.search(rf"\b{re.escape(phrase)}\b", lowered):
-            hits.extend(term_ids)
+            hits.extend(term_id for term_id in term_ids if term_id in allowed_ids)
     return list(dict.fromkeys(hits))
 
 
-def _candidates(query_text, synonyms, terms, embeddings, model, top_k):
-    term_by_id = {term["id"]: term for term in terms}
+def _candidates(query_text, synonyms, terms, embeddings, model, top_k, allowed_ids):
+    indices = [i for i, term in enumerate(terms) if term["id"] in allowed_ids]
+    if not indices:
+        raise RuntimeError("the PECO index has no plant exposure terms")
+
     query = model.encode([query_text], normalize_embeddings=True)[0].astype("float32")
-    scores = embeddings @ query
+    scores = embeddings[indices] @ query
     max_score = float(scores.max()) if scores.size else 0.0
 
+    term_by_id = {term["id"]: term for term in terms}
     selected = []
     seen = set()
 
-    for term_id in _lexical_hits(query_text, synonyms):
+    for term_id in _lexical_hits(query_text, synonyms, allowed_ids):
         if term_id in term_by_id and term_id not in seen:
             selected.append(term_by_id[term_id])
             seen.add(term_id)
             if len(selected) >= top_k:
                 return selected, max_score
 
-    for index in np.argsort(-scores):
-        term = terms[int(index)]
+    for offset in np.argsort(-scores):
+        term = terms[indices[int(offset)]]
         if term["id"] in seen:
             continue
         selected.append(term)
@@ -119,32 +117,46 @@ def _validate(parsed, candidate_ids, term_by_id):
         if not evidence:
             raise ValueError(f"term {term_id} has no evidence")
         cleaned.append(
-            {"term_id": term_id, "label": term_by_id[term_id]["label"], "evidence": evidence}
+            {
+                "term_id": term_id,
+                "label": term_by_id[term_id]["label"],
+                "evidence": evidence,
+            }
         )
 
     no_condition = _as_bool(parsed.get("no_condition", False))
     other = _as_bool(parsed.get("other", False))
+    suggested = parsed.get("suggested_label")
+    suggested = suggested.strip() if isinstance(suggested, str) else ""
+
     if other and no_condition:
         raise ValueError("'other' and 'no_condition' cannot both be true")
     if other and cleaned:
         raise ValueError("'other' cannot be combined with selected terms")
     if not cleaned and not (other or no_condition):
         raise ValueError("empty terms list without other=true or no_condition=true")
-    return cleaned, no_condition, other
+    if not other:
+        suggested = ""
+    return cleaned, no_condition, other, suggested
 
 
 def main():
     with open(snakemake.input.biosample) as handle:
         biosample = json.load(handle)
+    with open(snakemake.input.sra) as handle:
+        sra = json.load(handle)
     with open(snakemake.input.summary) as handle:
         summary = json.load(handle)
 
     terms, synonyms, embeddings = _load_index(snakemake.input.index)
+    allowed_ids = {
+        term["id"] for term in terms if term.get("branch") == "exposure"
+    }
     top_k = int(snakemake.params.top_k)
     model = SentenceTransformer(snakemake.params.embed_model)
-    query_text = _query_text(biosample, summary)
+    query_text = _query_text(biosample, sra, summary)
     candidates, max_score = _candidates(
-        query_text, synonyms, terms, embeddings, model, top_k
+        query_text, synonyms, terms, embeddings, model, top_k, allowed_ids
     )
     candidate_ids = {term["id"] for term in candidates}
     term_by_id = {term["id"]: term for term in terms}
@@ -166,9 +178,10 @@ def main():
     selected = None
     no_condition = False
     other = False
+    suggested_label = ""
     for _ in range(3):
         try:
-            selected, no_condition, other = _validate(
+            selected, no_condition, other, suggested_label = _validate(
                 chat_json(
                     client,
                     snakemake.params.model,
@@ -196,10 +209,12 @@ def main():
 
     result = {
         "run": snakemake.wildcards.run,
+        "layer": "exposure",
         "model": snakemake.params.model,
         "n_candidates": len(candidates),
         "no_condition": no_condition,
         "other": other,
+        "suggested_label": suggested_label,
         "max_retrieval_score": round(max_score, 4),
         "terms": selected,
         "query": query_text,

@@ -4,43 +4,58 @@ ncbi:
   email: milesroberts@berkeley.edu
   api_key_env: NCBI_API_KEY
   batch_size: 200
+  sra_batch_size: 50
   max_retries: 5
 
 peco:
   url: http://purl.obolibrary.org/obo/peco.owl
   top_k: 30
   embed_model: BAAI/bge-base-en-v1.5
+  exposure_branch: PECO:0001001
+  study_branch: PECO:0007231
+  growth_system_root: PECO:0007147
 
 paper:
   max_chars: 12000
 
 tissue:
-  # Replace with the six tissue categories used in your analysis.
+  # The paper's six categories, with flower and fruit separated.
   categories:
-    - leaf
+    - whole_plant
+    - shoot
     - root
-    - stem
-    - flower
-    - seedling
+    - leaf
     - seed
+    - flower
+    - fruit
   keywords:
+    whole_plant:
+      - whole plant
+      - seedling
+      - plantlet
+    shoot:
+      - shoot
+      - stem
+      - hypocotyl
+    root:
+      - root
     leaf:
       - leaf
       - rosette
-    root:
-      - root
-    stem:
-      - stem
-      - shoot
-      - hypocotyl
+      - cotyledon
+    seed:
+      - seed
+      - embryo
     flower:
       - flower
       - floral
       - inflorescence
-    seedling:
-      - seedling
-    seed:
-      - seed
+      - bud
+      - pollen
+    fruit:
+      - fruit
+      - silique
+      - seed pod
   attribute_keys:
     - tissue
     - organism part
@@ -51,23 +66,178 @@ tissue:
   other_description: >-
     None of the listed categories fits, or the sampled tissue is ambiguous.
 
+germplasm:
+  categories:
+    - natural_accession
+    - mutant
+    - transgenic
+    - hybrid
+    - grafted
+    - cell_culture
+    - polyploid
+    - aneuploid
+    - unknown
+  attribute_keys:
+    - genotype
+    - genotype/variation
+    - ecotype
+    - cultivar
+    - strain
+    - sample name
+    - description
+    - tissue
+  natural_accessions:
+    - Col-0
+    - Col0
+    - Ler-0
+    - Ler0
+    - Ws-0
+    - Ws0
+    - Cvi-0
+    - Bay-0
+    - Sha-0
+    - Kas-1
+    - Tsu-1
+    - Est-1
+    - Rld-1
+    - Lov-1
+    - Fei-0
+    - Br-0
+    - Kz-9
+    - Kn-0
+    - No-0
+    - Oy-0
+    - Per-1
+    - Sap-0
+    - Sorbo
+    - Mt-0
+    - Bl-1
+    - Bur-0
+    - Ct-1
+    - Edi-0
+    - Ga-0
+    - Gre-0
+    - Hov-0
+    - Kondara
+    - Mh-1
+    - Ms-0
+    - NFA-8
+    - NFA-10
+    - PHW-2
+    - Pu2-7
+    - Ra-0
+    - Rak-1
+    - Rrs-7
+    - Rrs-10
+    - Van-0
+    - VIN-3
+    - Wei-0
+    - Wt-5
+    - Yo-0
+    - Zdr-1
+  patterns:
+    mutant:
+      - '\bSALK_\d+'
+      - '\bSAIL_\d+'
+      - '\bGABI_\d+'
+      - '\bWiscDsLox\w*'
+      - '\bFLAG_\d+'
+      - '\bGT_\d+'
+      - '\bSM_\d+'
+      - '\bCS\d{3,}'
+      - '\bN\d{3,}'
+      - '\bmutant\b'
+      - '\bknockout\b'
+      - '\bknock-out\b'
+      - '\bknockdown\b'
+      - '\binsertion\b'
+      - '\bEMS\b'
+      - '\bpoint mutation\b'
+      - '\bdeletion\b'
+      - '\bnull allele\b'
+    transgenic:
+      - '\b35S\b'
+      - '\bUBQ10\b'
+      - '\bGFP\b'
+      - '\bGUS\b'
+      - '\bYFP\b'
+      - '\bCFP\b'
+      - '\bRNAi\b'
+      - '\bamiR\w*'
+      - '\bCRISPR\b'
+      - '\bCas9\b'
+      - '\bT-DNA\b'
+      - '\boverexpression\b'
+      - '\bover-expression\b'
+      - '\bcomplementation\b'
+      - '\breporter\b'
+      - '\btransgenic\b'
+    hybrid:
+      - '\bhybrid\b'
+      - '\bF1\b'
+      - '\bcross\b'
+    grafted:
+      - '\bgraft\w*'
+      - '\brootstock\b'
+      - '\bscion\b'
+    cell_culture:
+      - '\bcell culture\b'
+      - '\bsuspension\b'
+      - '\bcallus\b'
+      - '\bprotoplast\w*'
+    polyploid:
+      - '\bpolyploid\b'
+      - '\btetraploid\b'
+      - '\btriploid\b'
+    aneuploid:
+      - '\baneuploid\b'
+  descriptions:
+    natural_accession: >-
+      A naturally occurring Arabidopsis thaliana accession or a wild-type
+      plant with no engineered or induced mutation.
+    mutant: >-
+      A mutant line or mutant allele, including T-DNA, EMS, CRISPR, point
+      mutation, knockout, or knockdown lines.
+    transgenic: >-
+      A transgenic or transformed line carrying a construct, reporter,
+      overexpression cassette, RNAi, or complementation construct.
+    hybrid: A hybrid or F1 cross between genotypes.
+    grafted: A grafted plant with rootstock and scion.
+    cell_culture: Suspension cells, callus, protoplasts, or other cultured cells.
+    polyploid: A polyploid plant such as a tetraploid or triploid.
+    aneuploid: An aneuploid plant.
+    unknown: Insufficient evidence to determine the germplasm type.
+  other_description: >-
+    Use unknown when the metadata does not establish whether the sample is a
+    natural accession or a modified line.
+
 review:
   tissue_confidence: 0.6
-  peco_retrieval_score: 0.55
+  germplasm_confidence: 0.6
+  exposure_retrieval_score: 0.55
+  study_confidence: 0.6
   flag_missing_paper: true
   flag_low_confidence_paper: true
 
 models:
-  # Tissue uses the decision endpoint (/v1/systemone) by default. Set
-  # tissue_backend to "chat" to use the chat model instead.
   tissue_backend: decision
   tissue: qwen3.8
   tissue_decision: tev1:4b
-  peco: qwen3.8
+  germplasm_backend: decision
+  germplasm: qwen3.8
+  germplasm_decision: tev1:4b
+  exposure: qwen3.8
+  study_backend: decision
+  study: qwen3.8
+  study_decision: tev1:4b
   summary: qwen3.8
   tissue_params:
     temperature: 0
-  peco_params: {}
+  germplasm_params:
+    temperature: 0
+  exposure_params: {}
+  study_params:
+    temperature: 0
   summary_params:
     temperature: 0
 

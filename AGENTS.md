@@ -40,8 +40,12 @@ tests or packaging; the Snakemake workflow has lint/format checks in CI.
 - Models are served locally by Ollama on the Savio H200 node (`qwen3.8`,
   `tev1:4b`), not by Ollama Cloud. `workflow/savio/run.sh` starts the shared
   model-server job and points workers at it.
-- Tissue and PECO outputs use an `OTHER` sentinel plus review flags in
-  `results/labels.tsv`; see `sra-peco/README.md` for thresholds and setup.
+- Tissue, germplasm, and the two PECO layers use `OTHER`/`unknown` sentinels
+  plus review flags in `results/labels.tsv`; see `sra-peco/README.md` for
+  thresholds and setup.
+- `fetch_sra_metadata` is required for germplasm classification: mutant and
+  transgenic signals often live in the SRA experiment title or library name,
+  not in the BioSample record.
 
 ## Session transcripts
 

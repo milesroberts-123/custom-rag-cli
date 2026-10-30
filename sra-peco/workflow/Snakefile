@@ -1,4 +1,4 @@
-"""SRA RNA-seq sample labeling with PECO and tissue categories."""
+"""SRA RNA-seq sample labeling with PECO, tissue, and germplasm categories."""
 
 from snakemake.utils import min_version, validate
 
@@ -37,5 +37,7 @@ rule all:
     default_target: True
     input:
         expand("results/tissue/{run}.json", run=RUNS),
-        expand("results/peco/{run}.json", run=RUNS),
+        expand("results/germplasm/{run}.json", run=RUNS),
+        expand("results/exposure/{run}.json", run=RUNS),
+        expand("results/study_condition/{run}.json", run=RUNS),
         "results/labels.tsv",

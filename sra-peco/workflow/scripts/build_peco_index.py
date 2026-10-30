@@ -40,8 +40,17 @@ def _synonym_map(terms):
     return mapping
 
 
+def _descendant_ids(ontology, root_id):
+    root = ontology[root_id]
+    return {term.id for term in root.subclasses()} - {root_id}
+
+
 def main():
     ontology = Ontology(snakemake.input[0])
+    exposure_ids = _descendant_ids(ontology, snakemake.params.exposure_branch)
+    study_ids = _descendant_ids(ontology, snakemake.params.study_branch)
+    growth_ids = _descendant_ids(ontology, snakemake.params.growth_system_root)
+
     terms = []
     for term in ontology.terms():
         if not term.id.startswith("PECO:") or term.obsolete or not term.name:
@@ -49,12 +58,20 @@ def main():
         definition = _definition(term)
         synonyms = _synonyms(term)
         text = ". ".join(part for part in (term.name, definition, "; ".join(synonyms)) if part)
+        if term.id in study_ids:
+            branch = "study_condition"
+        elif term.id in exposure_ids:
+            branch = "exposure"
+        else:
+            branch = "other"
         terms.append(
             {
                 "id": term.id,
                 "label": term.name,
                 "definition": definition,
                 "synonyms": synonyms,
+                "branch": branch,
+                "growth_system": term.id in growth_ids,
                 "parents": sorted(
                     parent.id
                     for parent in term.superclasses(distance=1)
@@ -63,6 +80,7 @@ def main():
                 "text": text,
             }
         )
+
 
     if not terms:
         raise RuntimeError("no PECO terms parsed from the ontology")

@@ -21,6 +21,11 @@ def biosample_file(wildcards):
     return f"resources/biosample/{samn_of(wildcards.run)}.json"
 
 
+def sra_file(wildcards):
+    """Input function: normalized SRA metadata JSON for a run."""
+    return f"resources/sra/{wildcards.run}.json"
+
+
 def summary_file(wildcards):
     """Input function: per-project paper summary for a run."""
     return f"results/summary/{prjna_of(wildcards.run)}.json"

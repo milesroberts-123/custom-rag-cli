@@ -22,5 +22,8 @@ rule build_peco_index:
         "../envs/peco.yaml"
     params:
         embed_model=config["peco"]["embed_model"],
+        exposure_branch=config["peco"]["exposure_branch"],
+        study_branch=config["peco"]["study_branch"],
+        growth_system_root=config["peco"]["growth_system_root"],
     script:
         "../scripts/build_peco_index.py"
