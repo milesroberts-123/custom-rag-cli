@@ -1,0 +1,12 @@
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.12
+  - pip
+  - pip:
+      - --extra-index-url https://download.pytorch.org/whl/cpu
+      - numpy==1.26.4
+      - pronto==2.7.4
+      - torch==2.15.0+cpu
+      - sentence-transformers==6.2.0

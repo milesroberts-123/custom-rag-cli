@@ -1,0 +1,76 @@
+samples: config/samples.tsv
+
+ncbi:
+  email: milesroberts@berkeley.edu
+  api_key_env: NCBI_API_KEY
+  batch_size: 200
+  max_retries: 5
+
+peco:
+  url: http://purl.obolibrary.org/obo/peco.owl
+  top_k: 30
+  embed_model: BAAI/bge-base-en-v1.5
+
+paper:
+  max_chars: 12000
+
+tissue:
+  # Replace with the six tissue categories used in your analysis.
+  categories:
+    - leaf
+    - root
+    - stem
+    - flower
+    - seedling
+    - seed
+  keywords:
+    leaf:
+      - leaf
+      - rosette
+    root:
+      - root
+    stem:
+      - stem
+      - shoot
+      - hypocotyl
+    flower:
+      - flower
+      - floral
+      - inflorescence
+    seedling:
+      - seedling
+    seed:
+      - seed
+  attribute_keys:
+    - tissue
+    - organism part
+    - organ
+    - tissue type
+    - sample tissue
+    - cell type
+  other_description: >-
+    None of the listed categories fits, or the sampled tissue is ambiguous.
+
+review:
+  tissue_confidence: 0.6
+  peco_retrieval_score: 0.55
+  flag_missing_paper: true
+  flag_low_confidence_paper: true
+
+models:
+  # Tissue uses the decision endpoint (/v1/systemone) by default. Set
+  # tissue_backend to "chat" to use the chat model instead.
+  tissue_backend: decision
+  tissue: qwen3.8
+  tissue_decision: tev1:4b
+  peco: qwen3.8
+  summary: qwen3.8
+  tissue_params:
+    temperature: 0
+  peco_params: {}
+  summary_params:
+    temperature: 0
+
+ollama:
+  server_url: http://127.0.0.1:11434
+  api_key: ollama

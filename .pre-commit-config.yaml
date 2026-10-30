@@ -1,0 +1,21 @@
+repos:
+  - repo: local
+    hooks:
+      - id: snakefmt
+        name: snakefmt
+        entry: snakefmt --check
+        language: python
+        additional_dependencies:
+          - snakefmt==2.1.0
+        files: ^sra-peco/workflow/(Snakefile|rules/.*\.smk)$
+      - id: snakemake-lint
+        name: snakemake lint
+        entry: bash -c 'cd sra-peco && snakemake --lint'
+        language: python
+        additional_dependencies:
+          - snakemake==9.27.1
+          - pandas>=2.2,<3
+          - jsonschema>=4,<5
+          - pyyaml>=6,<7
+        files: ^sra-peco/
+        pass_filenames: false

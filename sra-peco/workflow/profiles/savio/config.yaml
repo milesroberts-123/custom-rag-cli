@@ -1,0 +1,12 @@
+executor: slurm
+jobs: 16
+latency-wait: 60
+rerun-incomplete: true
+slurm-logdir: logs/slurm
+slurm-qos: moilab_htc4_normal
+default-resources:
+  slurm_account: co_moilab
+  slurm_partition: savio4_htc
+  cpus_per_task: 1
+  mem_mb: 4000
+  runtime: 720

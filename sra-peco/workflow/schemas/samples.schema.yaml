@@ -1,0 +1,21 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+description: one SRA run in the sample sheet
+type: object
+properties:
+  run:
+    type: string
+    description: SRA run accession (SRR)
+  biosample:
+    type: string
+    description: NCBI BioSample accession (SAMN)
+  bioproject:
+    type: string
+    description: NCBI BioProject accession (PRJNA)
+  species:
+    type: string
+    description: scientific name
+required:
+  - run
+  - biosample
+  - bioproject
+  - species

@@ -1,0 +1,35 @@
+name: sra-peco
+
+on:
+  push:
+    paths:
+      - "sra-peco/**"
+      - ".github/workflows/sra-peco-ci.yml"
+      - ".pre-commit-config.yaml"
+  pull_request:
+    paths:
+      - "sra-peco/**"
+      - ".github/workflows/sra-peco-ci.yml"
+      - ".pre-commit-config.yaml"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sra-peco
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install "snakemake==9.27.1" "snakefmt==2.1.0" "pandas>=2.2,<3" "jsonschema>=4,<5" "pyyaml>=6,<7"
+      - name: Format
+        run: snakefmt --check workflow/
+      - name: Lint
+        run: snakemake --lint
+      - name: Dry run
+        run: snakemake -n --cores 1

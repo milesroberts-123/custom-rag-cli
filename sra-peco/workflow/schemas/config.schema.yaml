@@ -1,0 +1,147 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+description: workflow configuration for the SRA PECO labeling pipeline
+type: object
+properties:
+  samples:
+    type: string
+    description: path to the SRA run sample sheet
+  ncbi:
+    type: object
+    properties:
+      email:
+        type: string
+        description: contact email sent with NCBI E-utilities requests
+      api_key_env:
+        type: string
+        default: NCBI_API_KEY
+      batch_size:
+        type: integer
+        default: 200
+      max_retries:
+        type: integer
+        default: 5
+    required:
+      - email
+  peco:
+    type: object
+    properties:
+      url:
+        type: string
+      top_k:
+        type: integer
+        default: 30
+      embed_model:
+        type: string
+        default: BAAI/bge-base-en-v1.5
+    required:
+      - url
+  paper:
+    type: object
+    properties:
+      max_chars:
+        type: integer
+        default: 12000
+    required:
+      - max_chars
+  tissue:
+    type: object
+    properties:
+      categories:
+        type: array
+        items:
+          type: string
+        minItems: 1
+      keywords:
+        type: object
+        default: {}
+      attribute_keys:
+        type: array
+        items:
+          type: string
+        default:
+          - tissue
+          - organism part
+          - organ
+          - tissue type
+          - sample tissue
+          - cell type
+      other_description:
+        type: string
+        default: None of the listed categories fits.
+    required:
+      - categories
+  review:
+    type: object
+    properties:
+      tissue_confidence:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.6
+      peco_retrieval_score:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.55
+      flag_missing_paper:
+        type: boolean
+        default: true
+      flag_low_confidence_paper:
+        type: boolean
+        default: true
+    required:
+      - tissue_confidence
+      - peco_retrieval_score
+      - flag_missing_paper
+      - flag_low_confidence_paper
+  models:
+    type: object
+    properties:
+      tissue_backend:
+        type: string
+        enum:
+          - decision
+          - chat
+        default: decision
+      tissue:
+        type: string
+      tissue_decision:
+        type: string
+      peco:
+        type: string
+      summary:
+        type: string
+      peco_params:
+        type: object
+        default: {}
+      tissue_params:
+        type: object
+        default: {}
+      summary_params:
+        type: object
+        default: {}
+    required:
+      - tissue_backend
+      - tissue
+      - tissue_decision
+      - peco
+      - summary
+  ollama:
+    type: object
+    properties:
+      server_url:
+        type: string
+      api_key:
+        type: string
+    required:
+      - server_url
+      - api_key
+required:
+  - samples
+  - ncbi
+  - peco
+  - paper
+  - tissue
+  - review
+  - models
+  - ollama

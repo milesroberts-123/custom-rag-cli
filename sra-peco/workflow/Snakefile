@@ -1,0 +1,41 @@
+"""SRA RNA-seq sample labeling with PECO and tissue categories."""
+
+from snakemake.utils import min_version, validate
+
+min_version("9.0")
+
+
+configfile: "config/config.yaml"
+
+
+conda: "envs/global.yaml"
+
+
+import pandas as pd
+
+validate(config, "schemas/config.schema.yaml")
+
+SAMPLES = pd.read_table(config["samples"], dtype=str).set_index("run", drop=False)
+validate(SAMPLES, "schemas/samples.schema.yaml")
+
+if SAMPLES["run"].duplicated().any():
+    raise ValueError("config sample sheet contains duplicate run accessions")
+
+RUNS = SAMPLES["run"].tolist()
+SAMNS = sorted(set(SAMPLES["biosample"].tolist()))
+PRJNAS = sorted(set(SAMPLES["bioproject"].tolist()))
+
+
+include: "rules/common.smk"
+include: "rules/fetch.smk"
+include: "rules/paper.smk"
+include: "rules/peco.smk"
+include: "rules/label.smk"
+
+
+rule all:
+    default_target: True
+    input:
+        expand("results/tissue/{run}.json", run=RUNS),
+        expand("results/peco/{run}.json", run=RUNS),
+        "results/labels.tsv",
