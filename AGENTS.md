@@ -43,6 +43,14 @@ tests or packaging; the Snakemake workflow has lint/format checks in CI.
 - Tissue and PECO outputs use an `OTHER` sentinel plus review flags in
   `results/labels.tsv`; see `sra-peco/README.md` for thresholds and setup.
 
+## Session transcripts
+
+- Before every `git push`, run `scripts/export-session.sh <session-name>` and
+  commit the new `transcripts/*.json.xz` with that push. The script uses
+  `OPENCODE_SESSION_ID` for the current session.
+- The default export is complete; `--sanitize` redacts tool inputs and outputs
+  and should only be used when the transcript leaves the repo.
+
 ## Environment files
 
 - `setup.yaml` and `pypaperretriever.yaml` are `conda env export` snapshots with
