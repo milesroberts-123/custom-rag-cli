@@ -1,8 +1,9 @@
 # AGENTS.md
 
-This repository has two independent Python projects: the original LlamaIndex
-RAG CLI in `src/`, and the Snakemake workflow in `sra-peco/`. The RAG CLI has no
-tests or packaging; the Snakemake workflow has lint/format checks in CI.
+This repository has two independent Python projects: the Snakemake workflow at
+the repository root (`workflow/`, `config/`, `.test/`), and the original
+LlamaIndex RAG CLI in `src/`. The RAG CLI has no tests or packaging; the
+Snakemake workflow has lint/format checks in CI.
 
 ## Running
 
@@ -30,20 +31,23 @@ tests or packaging; the Snakemake workflow has lint/format checks in CI.
 - Filename and env spellings (`retrive`, `pypaperretriver`) are inconsistent.
   Keep existing paths unless you are deliberately renaming them.
 
-## sra-peco workflow
+## Snakemake workflow
 
-- `sra-peco/` is a self-contained Snakemake 9 workflow; run commands from that
-  directory (`config/`, `workflow/`, `results/`, `resources/`).
-- Before committing changes under `sra-peco/`, run `snakefmt --check workflow/`
-  and `snakemake --lint`. For Python sources run `ruff check` and
-  `ruff format --check`. Pre-commit hooks do this locally and
+- The workflow is at the repository root; run commands from the repo root
+  (`config/`, `workflow/`, `results/`, `resources/`).
+- Before committing changes under `workflow/`, `config/`, or `.test/`, run
+  `snakefmt --check workflow/` and `snakemake --lint`. For Python sources run
+  `ruff check` and `ruff format --check`. Pre-commit hooks do this locally and
   `.github/workflows/sra-peco-ci.yml` repeats it on push/PR.
+- The Snakemake workflow catalog only discovers `Snakefile` or
+  `workflow/Snakefile` at the repository root. Do not move the workflow back
+  under a subdirectory without updating the catalog layout.
 - Models are served locally by Ollama on the Savio H200 node (`qwen3.8`,
   `tev1:4b`), not by Ollama Cloud. `workflow/savio/run.sh` starts the shared
   model-server job and points workers at it.
 - Tissue, germplasm, and the two PECO layers use `OTHER`/`unknown` sentinels
-  plus review flags in `results/labels.tsv`; see `sra-peco/README.md` for
-  thresholds and setup.
+  plus review flags in `results/labels.tsv`; see `README.md` and
+  `config/README.md` for thresholds and setup.
 - `fetch_sra_metadata` is required for germplasm classification: mutant and
   transgenic signals often live in the SRA experiment title or library name,
   not in the BioSample record.

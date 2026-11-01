@@ -3,15 +3,23 @@ name: sra-peco
 on:
   push:
     paths:
-      - "sra-peco/**"
+      - "workflow/**"
+      - "config/**"
       - "src/**"
+      - ".test/**"
+      - ".snakemake-workflow-catalog.yml"
+      - "README.md"
       - "ruff.toml"
       - ".github/workflows/sra-peco-ci.yml"
       - ".pre-commit-config.yaml"
   pull_request:
     paths:
-      - "sra-peco/**"
+      - "workflow/**"
+      - "config/**"
       - "src/**"
+      - ".test/**"
+      - ".snakemake-workflow-catalog.yml"
+      - "README.md"
       - "ruff.toml"
       - ".github/workflows/sra-peco-ci.yml"
       - ".pre-commit-config.yaml"
@@ -19,9 +27,6 @@ on:
 jobs:
   lint:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: sra-peco
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -37,6 +42,8 @@ jobs:
         run: snakemake --lint
       - name: Dry run
         run: snakemake -n --cores 1
+      - name: Catalog rulegraph
+        run: snakemake -s workflow/Snakefile -d .test -c 1 --forceall --rulegraph >/dev/null
 
   python-lint:
     runs-on: ubuntu-latest
@@ -48,6 +55,6 @@ jobs:
       - name: Install ruff
         run: pip install "ruff==0.17.3"
       - name: Check format
-        run: ruff format --check src sra-peco/workflow/scripts
+        run: ruff format --check src workflow/scripts
       - name: Lint
-        run: ruff check src sra-peco/workflow/scripts
+        run: ruff check src workflow/scripts

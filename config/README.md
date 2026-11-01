@@ -1,0 +1,146 @@
+# Configuration
+
+The workflow reads two files from this directory:
+
+- `config/config.yaml` — workflow parameters.
+- `config/samples.tsv` — one SRA run per row.
+
+All relative paths are resolved from the repository root. Override the sample
+sheet without editing `config.yaml`:
+
+```bash
+snakemake -n --config samples=config/samples.test.tsv
+```
+
+## Sample sheet
+
+`config/samples.tsv` must be tab-separated with these columns:
+
+| Column | Description |
+|---|---|
+| `run` | SRA run accession (`SRR...`). Each run may appear once. |
+| `biosample` | NCBI BioSample accession (`SAMN...`). |
+| `bioproject` | NCBI BioProject accession (`PRJNA...`). |
+| `species` | Scientific name, for example `Arabidopsis thaliana`. |
+
+Example:
+
+```tsv
+run	biosample	bioproject	species
+SRR41450469	SAMN64520521	PRJNA1552792	Arabidopsis thaliana
+SRR41450470	SAMN64520520	PRJNA1552792	Arabidopsis thaliana
+```
+
+The workflow fetches BioSample and SRA metadata by accession. If a BioProject
+has no linked PubMed ID, the paper stage is skipped for that project; the
+sample is still labeled from metadata only.
+
+## `samples`
+
+Path to the sample sheet. Default: `config/samples.tsv`.
+
+## `ncbi`
+
+| Key | Default | Description |
+|---|---|---|
+| `email` | required | Contact email sent with NCBI E-utilities requests. |
+| `api_key_env` | `NCBI_API_KEY` | Environment variable containing an NCBI API key. Optional, but raises the rate limit. |
+| `batch_size` | `200` | BioSample accessions per efetch request. |
+| `sra_batch_size` | `50` | SRA run accessions per efetch request. |
+| `max_retries` | `5` | Retry attempts for NCBI requests. |
+
+## `peco`
+
+| Key | Default | Description |
+|---|---|---|
+| `url` | PECO OWL URL | Ontology download location. |
+| `top_k` | `30` | Candidate terms passed to the exposure model. |
+| `embed_model` | `BAAI/bge-base-en-v1.5` | Sentence-transformers model for retrieval. |
+| `exposure_branch` | `PECO:0001001` | Root of the plant exposure branch. |
+| `study_branch` | `PECO:0007231` | Root of the plant study condition branch. |
+| `growth_system_root` | `PECO:0007147` | Root of growth-medium exposure terms used for `growth_system_*` columns. |
+
+## `paper`
+
+| Key | Default | Description |
+|---|---|---|
+| `max_chars` | `12000` | Maximum excerpt length sent to the paper-summary model. |
+
+## `tissue`
+
+| Key | Description |
+|---|---|
+| `categories` | Allowed tissue categories. |
+| `keywords` | Keyword lists used by the rules fallback, keyed by category. |
+| `attribute_keys` | BioSample attribute names searched by the rules fallback. |
+| `other_description` | Description of the `OTHER` category sent to the model. |
+
+## `germplasm`
+
+| Key | Description |
+|---|---|
+| `categories` | Allowed germplasm categories. |
+| `attribute_keys` | BioSample attribute names used as evidence. |
+| `natural_accessions` | Accession names that count as natural accessions. |
+| `patterns` | Regex lists keyed by germplasm category. |
+| `descriptions` | Category descriptions sent to the decision model. |
+
+The default categories are `natural_accession`, `mutant`, `transgenic`,
+`hybrid`, `grafted`, `cell_culture`, `polyploid`, `aneuploid`, and `unknown`.
+
+## `review`
+
+| Key | Default | Description |
+|---|---|---|
+| `tissue_confidence` | `0.6` | Flag tissue calls below this confidence. |
+| `germplasm_confidence` | `0.6` | Flag germplasm calls below this confidence. |
+| `exposure_retrieval_score` | `0.55` | Flag exposure calls with a lower top retrieval score. |
+| `study_confidence` | `0.6` | Flag study-condition calls below this confidence. |
+| `flag_missing_paper` | `true` | Flag projects without a linked paper. |
+| `flag_low_confidence_paper` | `true` | Flag abstract-only or low-confidence paper summaries. |
+
+## `models`
+
+| Key | Default | Description |
+|---|---|---|
+| `tissue_backend` | `decision` | `decision` uses `/v1/systemone`; `chat` uses the chat endpoint. |
+| `tissue` | `qwen3.8` | Chat fallback model for tissue. |
+| `tissue_decision` | `tev1:4b` | Tev1 decision model for tissue. |
+| `germplasm_backend` | `decision` | Backend for germplasm. |
+| `germplasm` | `qwen3.8` | Chat fallback model for germplasm. |
+| `germplasm_decision` | `tev1:4b` | Tev1 decision model for germplasm. |
+| `study_backend` | `decision` | Backend for study condition. |
+| `study` | `qwen3.8` | Chat fallback model for study condition. |
+| `study_decision` | `tev1:4b` | Tev1 decision model for study condition. |
+| `exposure` | `qwen3.8` | Chat model for exposure labeling. |
+| `summary` | `qwen3.8` | Chat model for paper summarization. |
+
+Each `*_params` key is passed to the corresponding model request. The defaults
+set `temperature: 0` for deterministic calls.
+
+## `ollama`
+
+| Key | Default | Description |
+|---|---|---|
+| `server_url` | `http://127.0.0.1:11434` | Ollama server used by the rule scripts. |
+| `api_key` | `ollama` | Placeholder key for the OpenAI-compatible client. |
+
+Environment variables override these values:
+
+- `OLLAMA_SERVER` overrides `ollama.server_url`.
+- `OLLAMA_API_KEY` overrides `ollama.api_key`.
+- `NCBI_API_KEY` is read according to `ncbi.api_key_env`.
+
+## Running
+
+```bash
+# Parse the workflow and check the DAG.
+snakemake -n
+
+# Run with Conda-deployed rule environments.
+snakemake --sdm conda --cores 8
+```
+
+On Savio, `workflow/savio/run.sh` starts a shared Ollama server on an H200 and
+runs the CPU rules with the Slurm profile. See the repository README for the
+one-time setup.

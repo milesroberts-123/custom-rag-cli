@@ -1,32 +1,239 @@
-# custom-rag-cli
+# SRA PECO and tissue labeling workflow
 
-playing around with ollama and llama index to pass files to an LLM
+Snakemake workflow that labels SRA RNA-seq samples with plant tissue categories,
+germplasm types, and terms from the [Plant Experimental Conditions Ontology
+(PECO)](https://www.ebi.ac.uk/ols4/ontologies/peco).
 
-## example usage on a slurm cluster
+## Repository layout
+
+| Path | Contents |
+|---|---|
+| `workflow/` | Snakefile, rules, scripts, environments, profiles, and Savio launchers |
+| `config/` | Workflow configuration, configuration guide, and sample sheet |
+| `src/` | Original LlamaIndex RAG CLI; see `src/README.md` |
+| `results/` | Generated labels and per-run JSON |
+| `resources/` | Cached NCBI, paper, and PECO resources |
+| `logs/` | Snakemake and Slurm logs |
+
+## Pipeline
+
+1. Fetch BioSample records (attributes, organism) from NCBI.
+2. Fetch SRA run metadata: experiment title, library name, sample name, study
+   title/abstract, and SRA sample attributes.
+3. Resolve each BioProject to a PubMed ID. Projects without a linked
+   publication are skipped.
+4. Fetch open-access full text (or the abstract) from Europe PMC.
+5. Summarize the paper's experimental conditions once per BioProject.
+6. Label each run's tissue category.
+7. Classify each run's germplasm: natural accession, mutant, transgenic, hybrid,
+   grafted, cell culture, polyploid, aneuploid, or unknown.
+8. Label plant exposure PECO terms from the `PECO:0001001` branch.
+9. Label the PECO plant study condition from the `PECO:0007231` branch.
+10. Aggregate everything into `results/labels.tsv`.
+
+## Inputs
+
+`config/samples.tsv` — one SRA run per row:
+
+```tsv
+run	biosample	bioproject	species
+SRR41450469	SAMN64520521	PRJNA1552792	Arabidopsis thaliana
+```
+
+`config/config.yaml` — workflow parameters, including tissue categories,
+germplasm patterns, model names, and review thresholds. See
+[`config/README.md`](config/README.md) for the full configuration guide.
+
+## Models
+
+The default stack runs against one local Ollama server:
+
+| Step | Model | Endpoint |
+|---|---|---|
+| Tissue | `tev1:4b` | `/v1/systemone` (decision) |
+| Germplasm | `tev1:4b` | `/v1/systemone` (decision) |
+| Study condition | `tev1:4b` | `/v1/systemone` (decision) |
+| Exposure | `qwen3.8` | `/v1/chat/completions` |
+| Paper summary | `qwen3.8` | `/v1/chat/completions` |
+
+Each decision step falls back to the chat model if the decision endpoint
+fails. `config/config.yaml` sets `ollama.server_url` and `ollama.api_key`; the
+`OLLAMA_SERVER` and `OLLAMA_API_KEY` environment variables override them.
+
+Tev1 requires Ollama 0.35 or newer. This workflow targets Ollama 0.40.11.
+
+## Germplasm categories
+
+The germplasm step mirrors the manual filtering in the paper: natural
+accessions are retained, and modified lines are flagged for downstream
+filtering. Every run stays in the workflow; `is_natural_accession` is the
+filter column.
+
+- `natural_accession`
+- `mutant`
+- `transgenic`
+- `hybrid`
+- `grafted`
+- `cell_culture`
+- `polyploid`
+- `aneuploid`
+- `unknown`
+
+Rules first (SALK/SAIL/GABI/CS identifiers, 35S/GFP/GUS/RNAi/CRISPR markers,
+etc.), then the Tev1 decision model, then the chat fallback.
+
+## Two PECO layers
+
+The workflow follows PECO's actual branches:
+
+- **Plant exposure** (`PECO:0001001`): 511 terms including cold, high
+  temperature, light, drought, control exposure, and growth-medium exposures.
+  Retrieval selects candidates, and the chat model can return multiple terms.
+- **Plant study condition** (`PECO:0007231`): four terms — greenhouse study,
+  laboratory study, field study, growth chamber study — plus `OTHER`.
+
+Because agar plates and hydroponics are PECO growth-medium **exposure** terms,
+``results/labels.tsv`` also derives `growth_system_ids` / `growth_system_labels`
+from exposure terms under `PECO:0007147`. That keeps those systems visible
+without inventing a third PECO branch.
+
+The exposure prompt uses the paper's annotation conventions: control is
+long-day (≥12 h light, not constant), 18–26 °C, no stress or nutrient
+limitation; high temperature is ≥27 °C; cold is ≤17 °C; short day is <12 h
+light; PEG counts as drought; recovery samples are labeled by the recovery
+condition.
+
+If a condition exists but no candidate fits, the exposure layer returns
+`other: true` with a free-text `suggested_label` for review. `unknown`/`OTHER`
+is also used for germplasm and study condition when the evidence is
+insufficient.
+
+## Tissue categories
+
+The paper's categories, with flower and fruit separated:
+
+`whole_plant`, `shoot`, `root`, `leaf`, `seed`, `flower`, `fruit`, plus `OTHER`.
+
+## Output
+
+`results/labels.tsv` contains:
+
+- `run`, `biosample`, `bioproject`, `species`
+- `tissue`, `tissue_source`, `tissue_confidence`
+- `germplasm_type`, `is_natural_accession`, `germplasm_confidence`,
+  `germplasm_evidence`
+- `peco_exposure_ids`, `peco_exposure_labels`, `peco_exposure_evidence`,
+  `peco_exposure_other`, `peco_exposure_max_score`
+- `peco_study_id`, `peco_study_label`, `peco_study_confidence`
+- `growth_system_ids`, `growth_system_labels`
+- `has_paper`, `paper_low_confidence`
+- `review_required`, `review_reasons`
+
+Review reasons: `tissue_other`, `tissue_low_confidence`, `germplasm_unknown`,
+`germplasm_low_confidence`, `exposure_other`, `exposure_weak_retrieval`,
+`study_other`, `study_low_confidence`, `no_paper`, `paper_low_confidence`.
+
+## Requirements
+
+- Snakemake 9.x and Conda/Mamba for the per-rule environments
+- Ollama 0.40.11
+- Models pulled: `qwen3.8` and `tev1:4b`
+
+## Local run
 
 ```bash
-# submit interactive job with gpu
-# ENSURE THAT YOU REQUEST THE CORRECT NUMBER OF CPUS PER GPU
-srun --pty -A co_moilab -p savio4_gpu --qos savio_lowprio --gpus-per-task 1 --cpus-per-task 4 --ntasks 1 -t 01:00:00 bash -i
-
-# activate ollama software and extra llama index needs
-mamba activate /global/scratch/users/milesroberts/envs/ollama
-module load anaconda3
-module load ai/ollama/0.6.8
-
-# run ollama server in background
-ollama serve > /dev/null 2>&1 &
-
-# Optionally download a LLM
-# ollama pull tinyllama
-
-# confirm model is now available
-ollama list
-
-# warm up a model
-ollama run gemma3:1b What model are you? > response.txt
-
-# model should match warmed up model above
-# files should be a directory
-./src/custom_rag_cli.py --model "gemma3:1b" --files papers --query "What are three main themes of these papers?"
+export OLLAMA_SERVER="http://127.0.0.1:11434"
+ollama serve &
+snakemake -n
+snakemake --sdm conda --cores 8
 ```
+
+## Savio (H200)
+
+One-time setup, from a login node:
+
+```bash
+# 1. Upgrade Ollama, keeping the known-good 0.34.4 binary as a rollback
+cd /global/scratch/users/$USER/ollama
+cp bin/ollama bin/ollama-0.34.4
+curl -sL --fail -o ollama.tar.zst \
+  https://github.com/ollama/ollama/releases/download/v0.40.11/ollama-linux-amd64.tar.zst
+zstd -dc ollama.tar.zst | tar -xf -
+rm ollama.tar.zst
+
+# 2. Pull models (login node, not a GPU job)
+export OLLAMA_MODELS=/global/scratch/users/$USER/ollama-models
+export PATH=/global/scratch/users/$USER/ollama/bin:$PATH
+ollama serve &
+until curl -s http://127.0.0.1:11434 >/dev/null; do sleep 1; done
+ollama pull qwen3.8
+ollama pull tev1:4b
+kill %1
+
+# 3. Snakemake environment on scratch
+mamba create -p /global/scratch/users/$USER/envs/sra-peco \
+  -c conda-forge -c bioconda \
+  snakemake=9.27.1 snakemake-executor-plugin-slurm=2.8.0 snakefmt=2.1.0
+export PATH=/global/scratch/users/$USER/envs/sra-peco/bin:$PATH
+
+# 4. Pre-create the rule environments on the login node
+cd /global/home/users/$USER/moi_lab_projects/custom-rag-cli
+snakemake --sdm conda \
+  --conda-prefix /global/scratch/users/$USER/conda-envs/sra-peco \
+  --conda-create-envs-only
+```
+
+Run the workflow:
+
+```bash
+cd /global/home/users/$USER/moi_lab_projects/custom-rag-cli
+bash workflow/savio/run.sh
+```
+
+`run.sh` submits one H200 job that serves Ollama on `0.0.0.0:11434`, waits for
+it to warm `qwen3.8`, checks that the login node can reach it, then runs
+Snakemake with the `savio` profile. Rules run on `savio4_htc` and connect to the
+model server over the network. `HF_HOME` and the conda prefix are redirected to
+scratch.
+
+If compute-node networking is blocked, `run.sh` exits with a clear error. In
+that case the fallback is per-rule GPU jobs, which reload the models per job.
+
+## Validation
+
+There is no automated gold set. Manual spot-check 30–50 stratified runs:
+
+- 10 natural accessions, 10 mutants, 10 transgenics, 5 other non-natural
+- 10 with a paper, 10 without
+- 10 clear exposures, 10 ambiguous or control
+- 10 study conditions stated, 10 unstated
+- all seven tissue categories represented
+
+Record expected values in a table with `run`, `expected_tissue`,
+`expected_germplasm`, `natural_accession`, `expected_exposure_ids`,
+`expected_study_id`, `expected_growth_system`, and `notes`. Track exact and
+ancestor PECO agreement, set overlap for multiple exposures, tissue agreement,
+and the false-natural rate. A mutant labeled `natural_accession` is the most
+costly error.
+
+Supplementary Table S5 from the paper is a useful optional cross-check, but it
+is not part of the automated validation.
+
+## Commit checks
+
+Install the hooks once per clone:
+
+```bash
+pip install pre-commit
+pre-commit install
+```
+
+The hooks run `snakefmt --check` and `snakemake --lint` on `workflow/` and
+`config/` changes, and `ruff check` / `ruff format --check` on the Python
+sources. The `.github/workflows/sra-peco-ci.yml` workflow repeats these checks
+on push and pull request, plus a `snakemake -n` dry run.
+
+## RAG CLI
+
+The original LlamaIndex RAG CLI remains in `src/`; see
+[`src/README.md`](src/README.md) for its setup and Slurm usage.

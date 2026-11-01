@@ -1,7 +1,0 @@
-.snakemake/
-results/*
-!results/.gitkeep
-resources/*
-!resources/.gitkeep
-logs/*
-!logs/.gitkeep

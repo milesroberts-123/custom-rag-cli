@@ -205,3 +205,17 @@ cython_debug/
 marimo/_static/
 marimo/_lsp/
 __marimo__/
+
+# Snakemake workflow outputs and state
+.snakemake/
+/workflow/.snakemake/
+/.test/.snakemake/
+/results/*
+!/results/.gitkeep
+/resources/*
+!/resources/.gitkeep
+/logs/*
+!/logs/.gitkeep
+/.test/results/
+/.test/resources/
+/.test/logs/

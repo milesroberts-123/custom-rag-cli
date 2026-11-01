@@ -1,0 +1,80 @@
+samples: config/samples.tsv
+
+ncbi:
+  email: test@example.com
+  api_key_env: NCBI_API_KEY
+  batch_size: 2
+  sra_batch_size: 2
+  max_retries: 1
+
+peco:
+  url: http://purl.obolibrary.org/obo/peco.owl
+  top_k: 5
+  embed_model: BAAI/bge-base-en-v1.5
+  exposure_branch: PECO:0001001
+  study_branch: PECO:0007231
+  growth_system_root: PECO:0007147
+
+paper:
+  max_chars: 1000
+
+tissue:
+  categories:
+    - leaf
+    - root
+  keywords:
+    leaf:
+      - leaf
+    root:
+      - root
+  attribute_keys:
+    - tissue
+  other_description: No listed tissue category fits.
+
+germplasm:
+  categories:
+    - natural_accession
+    - mutant
+    - unknown
+  attribute_keys:
+    - genotype
+    - ecotype
+  natural_accessions:
+    - Col-0
+  patterns:
+    mutant:
+      - '\bmutant\b'
+  descriptions:
+    natural_accession: A natural accession or wild-type plant.
+    mutant: A mutant line.
+    unknown: Insufficient evidence.
+
+review:
+  tissue_confidence: 0.6
+  germplasm_confidence: 0.6
+  exposure_retrieval_score: 0.55
+  study_confidence: 0.6
+  flag_missing_paper: true
+  flag_low_confidence_paper: true
+
+models:
+  tissue_backend: chat
+  tissue: test-model
+  tissue_decision: test-model
+  germplasm_backend: chat
+  germplasm: test-model
+  germplasm_decision: test-model
+  exposure: test-model
+  study_backend: chat
+  study: test-model
+  study_decision: test-model
+  summary: test-model
+  tissue_params: {}
+  germplasm_params: {}
+  exposure_params: {}
+  study_params: {}
+  summary_params: {}
+
+ollama:
+  server_url: http://127.0.0.1:11434
+  api_key: ollama
