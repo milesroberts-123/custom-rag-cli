@@ -35,7 +35,8 @@ tests or packaging; the Snakemake workflow has lint/format checks in CI.
 - `sra-peco/` is a self-contained Snakemake 9 workflow; run commands from that
   directory (`config/`, `workflow/`, `results/`, `resources/`).
 - Before committing changes under `sra-peco/`, run `snakefmt --check workflow/`
-  and `snakemake --lint`. Pre-commit hooks do this locally and
+  and `snakemake --lint`. For Python sources run `ruff check` and
+  `ruff format --check`. Pre-commit hooks do this locally and
   `.github/workflows/sra-peco-ci.yml` repeats it on push/PR.
 - Models are served locally by Ollama on the Savio H200 node (`qwen3.8`,
   `tev1:4b`), not by Ollama Cloud. `workflow/savio/run.sh` starts the shared

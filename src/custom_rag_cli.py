@@ -1,31 +1,34 @@
 #!/global/scratch/users/milesroberts/envs/ollama/bin/python
+# The import banner is printed before the imports on purpose.
+# ruff: noqa: E402
 print("Importing modules...")
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
-from llama_index.core.agent.workflow import AgentWorkflow
-from llama_index.llms.ollama import Ollama
-from llama_index.embeddings.huggingface import HuggingFaceEmbedding
-import asyncio
-import os
-import click
 
-#async def search_documents(query: str) -> str:
+import click
+from llama_index.core import Settings, SimpleDirectoryReader, VectorStoreIndex
+from llama_index.embeddings.huggingface import HuggingFaceEmbedding
+from llama_index.llms.ollama import Ollama
+
+# async def search_documents(query: str) -> str:
 #    """Useful for answering natural language questions about documents."""
 #    response = await query_engine.aquery(query)
 #    return str(response)
 
+
 @click.command()
-@click.option('--files', default="papers", help='Path to directory of files')
-@click.option('--query', default="What is the main theme of the documents?", help='Prompt for lmm')
-@click.option('--model', default="gemma3:1b", help='Model to run')
-#def cli(files, query, model):
-    #main(files, query, model)
-    #asyncio.run(main(files, query))
+@click.option("--files", default="papers", help="Path to directory of files")
+@click.option(
+    "--query", default="What is the main theme of the documents?", help="Prompt for lmm"
+)
+@click.option("--model", default="gemma3:1b", help="Model to run")
+# def cli(files, query, model):
+# main(files, query, model)
+# asyncio.run(main(files, query))
 
 # Now we can ask questions about the documents or do calculations
 # https://developers.llamaindex.ai/python/framework/getting_started/starter_example_local/#adding-rag-capabilities
 def main(files, query, model):
     # print params
-    click.echo(f"Input parameters received:")
+    click.echo("Input parameters received:")
     click.echo(f"  files: {files}")
     click.echo(f"  query: {query}")
     click.echo(f"  model: {model}")
@@ -55,8 +58,9 @@ def main(files, query, model):
     response = query_engine.query(query)
     response.print_response_stream()
 
+
 # Run the agent
 if __name__ == "__main__":
-    #asyncio.run(main())
+    # asyncio.run(main())
     main()
-    #cli()
+    # cli()

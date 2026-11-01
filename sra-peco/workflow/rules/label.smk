@@ -10,16 +10,11 @@ rule label_tissue:
     conda:
         "../envs/llm.yaml"
     params:
+        **llm_rule_params("tissue", decision=True),
         categories=config["tissue"]["categories"],
         keywords=config["tissue"]["keywords"],
         attribute_keys=config["tissue"]["attribute_keys"],
         other_description=config["tissue"]["other_description"],
-        backend=config["models"]["tissue_backend"],
-        model=config["models"]["tissue"],
-        decision_model=config["models"]["tissue_decision"],
-        model_params=config["models"]["tissue_params"],
-        server_url=config["ollama"]["server_url"],
-        api_key=config["ollama"]["api_key"],
     script:
         "../scripts/label_tissue.py"
 
@@ -36,18 +31,12 @@ rule label_germplasm:
     conda:
         "../envs/llm.yaml"
     params:
+        **llm_rule_params("germplasm", decision=True),
         categories=config["germplasm"]["categories"],
         attribute_keys=config["germplasm"]["attribute_keys"],
         natural_accessions=config["germplasm"]["natural_accessions"],
         patterns=config["germplasm"]["patterns"],
         descriptions=config["germplasm"]["descriptions"],
-        other_description=config["germplasm"]["other_description"],
-        backend=config["models"]["germplasm_backend"],
-        model=config["models"]["germplasm"],
-        decision_model=config["models"]["germplasm_decision"],
-        model_params=config["models"]["germplasm_params"],
-        server_url=config["ollama"]["server_url"],
-        api_key=config["ollama"]["api_key"],
     script:
         "../scripts/label_germplasm.py"
 
@@ -65,12 +54,9 @@ rule label_exposure:
     conda:
         "../envs/peco_llm.yaml"
     params:
+        **llm_rule_params("exposure"),
         top_k=config["peco"]["top_k"],
         embed_model=config["peco"]["embed_model"],
-        model=config["models"]["exposure"],
-        model_params=config["models"]["exposure_params"],
-        server_url=config["ollama"]["server_url"],
-        api_key=config["ollama"]["api_key"],
     script:
         "../scripts/label_exposure.py"
 
@@ -88,12 +74,7 @@ rule label_study_condition:
     conda:
         "../envs/llm.yaml"
     params:
-        backend=config["models"]["study_backend"],
-        model=config["models"]["study"],
-        decision_model=config["models"]["study_decision"],
-        model_params=config["models"]["study_params"],
-        server_url=config["ollama"]["server_url"],
-        api_key=config["ollama"]["api_key"],
+        **llm_rule_params("study", decision=True),
     script:
         "../scripts/label_study_condition.py"
 

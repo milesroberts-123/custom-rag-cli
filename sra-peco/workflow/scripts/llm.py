@@ -21,7 +21,9 @@ def make_client(server_url, api_key):
     return OpenAI(base_url=f"{_server(server_url)}/v1", api_key=_key(api_key))
 
 
-def systemone(server_url, api_key, model, state, questions, keep_alive="30m", timeout=120):
+def systemone(
+    server_url, api_key, model, state, questions, keep_alive="30m", timeout=120
+):
     """Ask Ollama's decision endpoint (/v1/systemone) one or more questions."""
     payload = {
         "model": model,

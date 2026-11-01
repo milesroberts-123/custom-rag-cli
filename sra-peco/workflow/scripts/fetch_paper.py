@@ -6,29 +6,16 @@ import re
 import time
 from pathlib import Path
 
-import requests
+from http_utils import get
 
 ESEARCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi"
 ELINK_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/elink.fcgi"
 EPMC_SEARCH_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/search"
-EPMC_FULLTEXT_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+EPMC_FULLTEXT_URL = (
+    "https://www.ebi.ac.uk/europepmc/webservices/rest/{pmcid}/fullTextXML"
+)
 
 RATE_LIMIT_SECONDS = 0.35
-
-
-def _get(url, params=None, max_retries=5):
-    delay = 1.0
-    for attempt in range(max_retries):
-        response = requests.get(url, params=params, timeout=120)
-        if response.status_code == 429:
-            time.sleep(delay)
-            delay *= 2
-            continue
-        if response.status_code == 404:
-            return None
-        response.raise_for_status()
-        return response
-    raise RuntimeError(f"GET {url} exhausted retries")
 
 
 def _strip_tags(text):
@@ -47,7 +34,7 @@ def _bioproject_uid(prjna, email, api_key):
     if api_key:
         params["api_key"] = api_key
     time.sleep(RATE_LIMIT_SECONDS)
-    response = _get(ESEARCH_URL, params=params)
+    response = get(ESEARCH_URL, params=params)
     ids = response.json().get("esearchresult", {}).get("idlist", [])
     return ids[0] if ids else None
 
@@ -68,7 +55,7 @@ def _linked_pmids(prjna, email, api_key):
     if api_key:
         params["api_key"] = api_key
     time.sleep(RATE_LIMIT_SECONDS)
-    response = _get(ELINK_URL, params=params)
+    response = get(ELINK_URL, params=params)
     payload = response.json()
     if "error" in payload:
         raise RuntimeError(f"ELink failed for {prjna}: {payload['error']}")
@@ -92,7 +79,7 @@ def _paper_record(prjna, pmid):
         "format": "json",
     }
     time.sleep(RATE_LIMIT_SECONDS)
-    response = _get(EPMC_SEARCH_URL, params=params)
+    response = get(EPMC_SEARCH_URL, params=params)
     results = response.json().get("resultList", {}).get("result", [])
     if not results:
         return {"prjna": prjna, "pmid": pmid, "status": "none"}
@@ -114,7 +101,7 @@ def _paper_record(prjna, pmid):
     }
     if pmcid and is_open:
         time.sleep(RATE_LIMIT_SECONDS)
-        fulltext = _get(EPMC_FULLTEXT_URL.format(pmcid=pmcid))
+        fulltext = get(EPMC_FULLTEXT_URL.format(pmcid=pmcid))
         if fulltext is not None:
             record["fulltext_xml"] = fulltext.text
             record["status"] = "fulltext"
@@ -129,7 +116,6 @@ def main():
 
     email = snakemake.params.email
     api_key = os.environ.get(snakemake.params.api_key_env or "")
-    max_retries = int(snakemake.params.max_retries)
 
     for prjna, path in zip(prjnas, outputs):
         pmids = _linked_pmids(prjna, email, api_key)

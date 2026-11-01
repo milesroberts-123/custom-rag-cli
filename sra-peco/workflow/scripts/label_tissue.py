@@ -11,8 +11,7 @@ from llm import chat_json, make_client, systemone
 OTHER = "OTHER"
 
 SYSTEM = (
-    "You assign plant tissue categories to RNA-seq samples. "
-    "Return only a JSON object."
+    "You assign plant tissue categories to RNA-seq samples. Return only a JSON object."
 )
 
 PROMPT = """Sample evidence (BioSample, SRA metadata, paper):
@@ -39,7 +38,6 @@ def _rules_category(values, categories, keywords):
                 hits.append(category)
                 break
     return hits[0] if len(hits) == 1 else None
-
 
 
 def _state(biosample, summary, values):
@@ -114,7 +112,6 @@ def main():
         biosample, sra, summary, list(snakemake.params.attribute_keys)
     )
 
-
     confidence = None
     probabilities = None
     category = _rules_category(values, categories, keywords)
@@ -148,9 +145,7 @@ def main():
                 fell_back = True
 
         if snakemake.params.backend == "chat" or fell_back:
-            client = make_client(
-                snakemake.params.server_url, snakemake.params.api_key
-            )
+            client = make_client(snakemake.params.server_url, snakemake.params.api_key)
             category, evidence = _chat(
                 client,
                 snakemake.params.model,

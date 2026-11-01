@@ -49,6 +49,5 @@ rule fetch_papers:
         prjnas=PRJNAS,
         email=config["ncbi"]["email"],
         api_key_env=config["ncbi"]["api_key_env"],
-        max_retries=config["ncbi"]["max_retries"],
     script:
         "../scripts/fetch_paper.py"

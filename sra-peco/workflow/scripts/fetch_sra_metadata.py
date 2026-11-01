@@ -2,18 +2,10 @@
 
 import json
 import os
-import re
-import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import requests
-
-EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-
-
-def _strip_namespaces(xml_bytes):
-    return re.sub(rb'\sxmlns(:\w+)?="[^"]*"', b"", xml_bytes)
+from ncbi import fetch_efetch, strip_namespaces
 
 
 def _text(element, path):
@@ -22,7 +14,7 @@ def _text(element, path):
 
 
 def _parse(xml_bytes):
-    root = ET.fromstring(_strip_namespaces(xml_bytes))
+    root = ET.fromstring(strip_namespaces(xml_bytes))
     records = {}
     for package in root.findall(".//EXPERIMENT_PACKAGE"):
         experiment = package.find(".//EXPERIMENT")
@@ -69,34 +61,6 @@ def _parse(xml_bytes):
     return records
 
 
-def _fetch_batch(ids, email, api_key, max_retries):
-    params = {
-        "db": "sra",
-        "id": ",".join(ids),
-        "retmode": "xml",
-        "tool": "sra-peco",
-        "email": email,
-    }
-    if api_key:
-        params["api_key"] = api_key
-    delay = 1.0
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(EFETCH_URL, data=params, timeout=180)
-            if response.status_code == 429:
-                time.sleep(delay)
-                delay *= 2
-                continue
-            response.raise_for_status()
-            return response.content
-        except requests.RequestException:
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(delay)
-            delay *= 2
-    raise RuntimeError("SRA metadata fetch exhausted retries")
-
-
 def main():
     runs = list(snakemake.params.runs)
     outputs = list(snakemake.output)
@@ -111,11 +75,25 @@ def main():
     records = {}
     for start in range(0, len(runs), batch_size):
         batch = runs[start : start + batch_size]
-        records.update(_parse(_fetch_batch(batch, email, api_key, max_retries)))
+        records.update(
+            _parse(
+                fetch_efetch(
+                    "sra",
+                    batch,
+                    email,
+                    api_key,
+                    max_retries,
+                    timeout=180,
+                    error_label="SRA metadata fetch",
+                )
+            )
+        )
 
     missing = [run for run in runs if run not in records]
     if missing:
-        raise RuntimeError("NCBI returned no SRA record for: " + ", ".join(sorted(missing)))
+        raise RuntimeError(
+            "NCBI returned no SRA record for: " + ", ".join(sorted(missing))
+        )
 
     for run, path in zip(runs, outputs):
         Path(path).parent.mkdir(parents=True, exist_ok=True)

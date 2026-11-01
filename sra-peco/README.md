@@ -216,6 +216,7 @@ pip install pre-commit
 pre-commit install
 ```
 
-The hooks run `snakefmt --check` and `snakemake --lint` on `sra-peco/` changes.
-`.github/workflows/sra-peco-ci.yml` repeats both checks on push and pull
-request, plus a `snakemake -n` dry run.
+The hooks run `snakefmt --check` and `snakemake --lint` on `sra-peco/` changes,
+and `ruff check` / `ruff format --check` on the Python sources. The
+`.github/workflows/sra-peco-ci.yml` workflow repeats these checks on push and
+pull request, plus a `snakemake -n` dry run.

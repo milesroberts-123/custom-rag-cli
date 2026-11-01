@@ -5,6 +5,7 @@ import re
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from evidence import PAPER_KEYS
 from llm import chat_json, make_client
 
 SYSTEM = (
@@ -30,13 +31,6 @@ Excerpt:
 """
 
 METHOD_RE = re.compile(r"method|material|experimental|procedure", re.IGNORECASE)
-CONDITION_KEYS = (
-    "genotype",
-    "treatment",
-    "growth_conditions",
-    "tissue_sampled",
-    "stress",
-)
 
 
 def _strip_namespaces(xml_text):
@@ -92,9 +86,11 @@ def _jats_excerpt(xml_text, max_chars):
 
 def _normalize(parsed):
     conditions = {}
-    for key in CONDITION_KEYS:
+    for key in PAPER_KEYS:
         value = parsed.get(key)
-        conditions[key] = value.strip() if isinstance(value, str) and value.strip() else None
+        conditions[key] = (
+            value.strip() if isinstance(value, str) and value.strip() else None
+        )
     evidence = parsed.get("evidence")
     conditions["evidence"] = (
         evidence.strip() if isinstance(evidence, str) and evidence.strip() else ""

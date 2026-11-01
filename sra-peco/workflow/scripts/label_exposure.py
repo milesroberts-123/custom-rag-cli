@@ -5,9 +5,10 @@ import re
 from pathlib import Path
 
 import numpy as np
+from sentence_transformers import SentenceTransformer
+
 from evidence import evidence_lines
 from llm import chat_json, make_client
-from sentence_transformers import SentenceTransformer
 
 SYSTEM = (
     "You are a plant biology curator mapping RNA-seq sample conditions to the "
@@ -149,9 +150,7 @@ def main():
         summary = json.load(handle)
 
     terms, synonyms, embeddings = _load_index(snakemake.input.index)
-    allowed_ids = {
-        term["id"] for term in terms if term.get("branch") == "exposure"
-    }
+    allowed_ids = {term["id"] for term in terms if term.get("branch") == "exposure"}
     top_k = int(snakemake.params.top_k)
     model = SentenceTransformer(snakemake.params.embed_model)
     query_text = _query_text(biosample, sra, summary)

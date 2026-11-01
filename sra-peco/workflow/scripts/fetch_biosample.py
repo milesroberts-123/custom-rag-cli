@@ -2,22 +2,14 @@
 
 import json
 import os
-import re
-import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import requests
-
-EFETCH_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi"
-
-
-def _strip_namespaces(xml_bytes):
-    return re.sub(rb'\sxmlns(:\w+)?="[^"]*"', b"", xml_bytes)
+from ncbi import fetch_efetch, strip_namespaces
 
 
 def _parse(xml_bytes):
-    root = ET.fromstring(_strip_namespaces(xml_bytes))
+    root = ET.fromstring(strip_namespaces(xml_bytes))
     records = {}
     for biosample in root.findall(".//BioSample"):
         accession = biosample.get("accession")
@@ -41,34 +33,6 @@ def _parse(xml_bytes):
     return records
 
 
-def _fetch_batch(ids, email, api_key, max_retries):
-    params = {
-        "db": "biosample",
-        "id": ",".join(ids),
-        "retmode": "xml",
-        "tool": "sra-peco",
-        "email": email,
-    }
-    if api_key:
-        params["api_key"] = api_key
-    delay = 1.0
-    for attempt in range(max_retries):
-        try:
-            response = requests.post(EFETCH_URL, data=params, timeout=120)
-            if response.status_code == 429:
-                time.sleep(delay)
-                delay *= 2
-                continue
-            response.raise_for_status()
-            return response.content
-        except requests.RequestException:
-            if attempt == max_retries - 1:
-                raise
-            time.sleep(delay)
-            delay *= 2
-    raise RuntimeError("BioSample fetch exhausted retries")
-
-
 def main():
     samns = list(snakemake.params.samns)
     outputs = list(snakemake.output)
@@ -83,7 +47,19 @@ def main():
     records = {}
     for start in range(0, len(samns), batch_size):
         batch = samns[start : start + batch_size]
-        records.update(_parse(_fetch_batch(batch, email, api_key, max_retries)))
+        records.update(
+            _parse(
+                fetch_efetch(
+                    "biosample",
+                    batch,
+                    email,
+                    api_key,
+                    max_retries,
+                    timeout=120,
+                    error_label="BioSample fetch",
+                )
+            )
+        )
 
     missing = [samn for samn in samns if samn not in records]
     if missing:

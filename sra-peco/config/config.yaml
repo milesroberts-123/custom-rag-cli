@@ -207,9 +207,6 @@ germplasm:
     polyploid: A polyploid plant such as a tetraploid or triploid.
     aneuploid: An aneuploid plant.
     unknown: Insufficient evidence to determine the germplasm type.
-  other_description: >-
-    Use unknown when the metadata does not establish whether the sample is a
-    natural accession or a modified line.
 
 review:
   tissue_confidence: 0.6

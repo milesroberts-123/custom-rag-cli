@@ -22,7 +22,10 @@ def _synonyms(term):
     for synonym in term.synonyms:
         text = getattr(synonym, "description", None) or str(synonym)
         text = re.sub(
-            r"\s*\((?:exact|narrow|broad|related)\)\s*$", "", text.strip(), flags=re.IGNORECASE
+            r"\s*\((?:exact|narrow|broad|related)\)\s*$",
+            "",
+            text.strip(),
+            flags=re.IGNORECASE,
         )
         if text:
             values.add(text)
@@ -57,7 +60,9 @@ def main():
             continue
         definition = _definition(term)
         synonyms = _synonyms(term)
-        text = ". ".join(part for part in (term.name, definition, "; ".join(synonyms)) if part)
+        text = ". ".join(
+            part for part in (term.name, definition, "; ".join(synonyms)) if part
+        )
         if term.id in study_ids:
             branch = "study_condition"
         elif term.id in exposure_ids:
@@ -81,7 +86,6 @@ def main():
             }
         )
 
-
     if not terms:
         raise RuntimeError("no PECO terms parsed from the ontology")
 
@@ -95,9 +99,13 @@ def main():
 
     output = Path(snakemake.output[0])
     output.mkdir(parents=True, exist_ok=True)
-    serializable = [{key: value for key, value in term.items() if key != "text"} for term in terms]
+    serializable = [
+        {key: value for key, value in term.items() if key != "text"} for term in terms
+    ]
     (output / "terms.json").write_text(json.dumps(serializable, indent=2) + "\n")
-    (output / "synonyms.json").write_text(json.dumps(_synonym_map(terms), indent=2) + "\n")
+    (output / "synonyms.json").write_text(
+        json.dumps(_synonym_map(terms), indent=2) + "\n"
+    )
     np.save(output / "embeddings.npy", embeddings)
 
 

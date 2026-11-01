@@ -8,7 +8,7 @@ from pathlib import Path
 from evidence import evidence_lines
 from llm import chat_json, make_client, systemone
 
-OTHER = "unknown"
+UNKNOWN = "unknown"
 
 PRIORITY = (
     "cell_culture",
@@ -96,7 +96,8 @@ def _natural_supported(values, accessions):
     return True
 
 
-def _rule_label(text, values, accessions, patterns):
+def _rule_label(values, accessions, patterns):
+    text = "\n".join(values)
     hits = _pattern_hits(text, patterns)
     natural = _natural_hits(text, accessions)
 
@@ -118,14 +119,15 @@ def _rule_label(text, values, accessions, patterns):
     return None, "", ""
 
 
-
 def _state(values, summary):
     conditions = summary.get("conditions") if summary.get("has_paper") else None
     return {"evidence": values, "paper_conditions": conditions}
 
 
 def _decision(server_url, api_key, model, state, categories, descriptions):
-    criteria = {category: descriptions.get(category) or category for category in categories}
+    criteria = {
+        category: descriptions.get(category) or category for category in categories
+    }
     questions = {
         "germplasm": {
             "type": "choice",
@@ -144,7 +146,7 @@ def _decision(server_url, api_key, model, state, categories, descriptions):
     return category, answer.get("confidence"), answer.get("probabilities")
 
 
-def _chat(client, model, model_params, values, summary, categories, descriptions):
+def _chat(client, model, model_params, values, categories, descriptions):
     allowed = "\n".join(
         f"- {category}: {descriptions.get(category, '')}" for category in categories
     )
@@ -164,7 +166,7 @@ def _chat(client, model, model_params, values, summary, categories, descriptions
                 return category, str(parsed.get("evidence", "")).strip()
         except ValueError:
             continue
-    return OTHER, ""
+    return UNKNOWN, ""
 
 
 def main():
@@ -189,7 +191,6 @@ def main():
 
     if values:
         category, evidence, source = _rule_label(
-            "\n".join(values),
             values,
             list(snakemake.params.natural_accessions),
             dict(snakemake.params.patterns),
@@ -225,14 +226,13 @@ def main():
                     snakemake.params.model,
                     snakemake.params.model_params,
                     values,
-                    summary,
                     categories,
                     descriptions,
                 )
                 source = "chat_fallback" if fell_back else "chat"
 
     if category is None:
-        category = OTHER
+        category = UNKNOWN
         source = "missing_evidence"
         evidence = "no genotype, ecotype, experiment title, or paper summary"
 

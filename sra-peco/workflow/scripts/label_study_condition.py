@@ -35,7 +35,9 @@ def _load_terms(index_dir):
 
 
 def _criteria(study_terms):
-    criteria = {term["label"]: term["definition"] or term["label"] for term in study_terms}
+    criteria = {
+        term["label"]: term["definition"] or term["label"] for term in study_terms
+    }
     criteria[OTHER] = "The evidence does not establish the study setting."
     return criteria
 
@@ -120,9 +122,7 @@ def main():
                 fell_back = True
 
         if snakemake.params.backend == "chat" or fell_back:
-            client = make_client(
-                snakemake.params.server_url, snakemake.params.api_key
-            )
+            client = make_client(snakemake.params.server_url, snakemake.params.api_key)
             category, evidence = _chat(
                 client,
                 snakemake.params.model,

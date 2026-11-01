@@ -9,7 +9,10 @@ import pandas as pd
 def _review_reasons(tissue, germplasm, exposure, study, summary, review):
     reasons = []
 
-    if tissue.get("tissue") in (None, "OTHER") or tissue.get("source") == "missing_attributes":
+    if (
+        tissue.get("tissue") in (None, "OTHER")
+        or tissue.get("source") == "missing_attributes"
+    ):
         reasons.append("tissue_other")
     confidence = tissue.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < float(
@@ -65,9 +68,7 @@ def main():
 
     terms = {
         term["id"]: term
-        for term in json.loads(
-            (Path(snakemake.input.index) / "terms.json").read_text()
-        )
+        for term in json.loads((Path(snakemake.input.index) / "terms.json").read_text())
     }
     review = dict(snakemake.params.review)
     rows = []
@@ -123,9 +124,7 @@ def main():
                 "peco_study_id": study.get("term_id"),
                 "peco_study_label": study.get("label"),
                 "peco_study_confidence": study.get("confidence"),
-                "growth_system_ids": ";".join(
-                    term["term_id"] for term in growth_terms
-                ),
+                "growth_system_ids": ";".join(term["term_id"] for term in growth_terms),
                 "growth_system_labels": ";".join(
                     term["label"] for term in growth_terms
                 ),
