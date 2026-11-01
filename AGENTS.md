@@ -1,9 +1,10 @@
 # AGENTS.md
 
-This repository has two independent Python projects: the Snakemake workflow at
-the repository root (`workflow/`, `config/`, `.test/`), and the original
-LlamaIndex RAG CLI in `src/`. The RAG CLI has no tests or packaging; the
-Snakemake workflow has lint/format checks in CI.
+This repository has three independent Python projects: the Snakemake workflow
+at the repository root (`workflow/`, `config/`, `.test/`), the Streamlit review
+app in `review_app/`, and the original LlamaIndex RAG CLI in `src/`. The RAG CLI
+has no tests or packaging; the Snakemake workflow and review app have
+lint/format/test checks in CI.
 
 ## Running
 
@@ -51,6 +52,24 @@ Snakemake workflow has lint/format checks in CI.
 - `fetch_sra_metadata` is required for germplasm classification: mutant and
   transgenic signals often live in the SRA experiment title or library name,
   not in the BioSample record.
+- `fetch_bioprojects` supplies the BioProject metadata shown in the review app.
+  Do not remove it from `rule all` without checking the app's fallback.
+
+## Review app
+
+- `review_app/` is a Streamlit app backed by SQLite at
+  `results/review/review.db`. It reads `results/labels.tsv` and `resources/`;
+  it must never modify `labels.tsv`.
+- Start it with `bash review_app/run.sh`, or
+  `streamlit run review_app/app.py`. Export with
+  `python -m review_app.export`.
+- SQLite assumes one shared app process. Do not run multiple app hosts against
+  the same database on a network filesystem.
+- Reviewer names are self-declared, not authenticated. Do not describe the
+  event log as compliance-grade attribution.
+- After changing the app or its data layer, run
+  `pytest -q review_app/tests workflow/tests` and
+  `ruff check review_app workflow/scripts workflow/tests`.
 
 ## Session transcripts
 

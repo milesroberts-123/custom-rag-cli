@@ -51,3 +51,21 @@ rule fetch_papers:
         api_key_env=config["ncbi"]["api_key_env"],
     script:
         "../scripts/fetch_paper.py"
+
+
+rule fetch_bioprojects:
+    input:
+        samples=config["samples"],
+    output:
+        expand("resources/bioproject/{prjna}.json", prjna=PRJNAS),
+    log:
+        "logs/fetch_bioprojects.log",
+    conda:
+        "../envs/ncbi.yaml"
+    params:
+        prjnas=PRJNAS,
+        email=config["ncbi"]["email"],
+        api_key_env=config["ncbi"]["api_key_env"],
+        max_retries=config["ncbi"]["max_retries"],
+    script:
+        "../scripts/fetch_bioproject.py"

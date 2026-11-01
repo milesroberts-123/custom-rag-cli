@@ -10,6 +10,7 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
 |---|---|
 | `workflow/` | Snakefile, rules, scripts, environments, profiles, and Savio launchers |
 | `config/` | Workflow configuration, configuration guide, and sample sheet |
+| `review_app/` | Streamlit human-review app and SQLite audit store |
 | `src/` | Original LlamaIndex RAG CLI; see `src/README.md` |
 | `results/` | Generated labels and per-run JSON |
 | `resources/` | Cached NCBI, paper, and PECO resources |
@@ -17,19 +18,17 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
 
 ## Pipeline
 
-1. Fetch BioSample records (attributes, organism) from NCBI.
-2. Fetch SRA run metadata: experiment title, library name, sample name, study
-   title/abstract, and SRA sample attributes.
-3. Resolve each BioProject to a PubMed ID. Projects without a linked
+1. Fetch BioProject, BioSample, and SRA metadata from NCBI.
+2. Resolve each BioProject to a PubMed ID. Projects without a linked
    publication are skipped.
-4. Fetch open-access full text (or the abstract) from Europe PMC.
-5. Summarize the paper's experimental conditions once per BioProject.
-6. Label each run's tissue category.
-7. Classify each run's germplasm: natural accession, mutant, transgenic, hybrid,
+3. Fetch open-access full text (or the abstract) from Europe PMC.
+4. Summarize the paper's experimental conditions once per BioProject.
+5. Label each run's tissue category.
+6. Classify each run's germplasm: natural accession, mutant, transgenic, hybrid,
    grafted, cell culture, polyploid, aneuploid, or unknown.
-8. Label plant exposure PECO terms from the `PECO:0001001` branch.
-9. Label the PECO plant study condition from the `PECO:0007231` branch.
-10. Aggregate everything into `results/labels.tsv`.
+7. Label plant exposure PECO terms from the `PECO:0001001` branch.
+8. Label the PECO plant study condition from the `PECO:0007231` branch.
+9. Aggregate everything into `results/labels.tsv`.
 
 ## Inputs
 
@@ -133,6 +132,38 @@ Review reasons: `tissue_other`, `tissue_low_confidence`, `germplasm_unknown`,
 `germplasm_low_confidence`, `exposure_other`, `exposure_weak_retrieval`,
 `study_other`, `study_low_confidence`, `no_paper`, `paper_low_confidence`.
 
+## Human review
+
+The Streamlit app in `review_app/` groups runs by BioProject, shows the linked
+paper and SRA/BioSample/BioProject metadata, and lets a reviewer edit tissue,
+germplasm, exposure PECO terms, and study condition.
+
+```bash
+python3 -m venv .venv
+. .venv/bin/activate
+pip install -r review_app/requirements.txt
+bash review_app/run.sh
+```
+
+Then open <http://127.0.0.1:8501>.
+
+The app never edits `results/labels.tsv`. It stores human edits and review
+status in `results/review/review.db`, and exports:
+
+- `results/labels.reviewed.csv`
+- `results/labels.reviewed.tsv`
+
+A run counts as reviewed only after an explicit **Mark reviewed** action.
+Reviewer names are self-declared. The SQLite database is designed for one
+shared Streamlit process; use Postgres if you need multiple app hosts. See
+[`review_app/README.md`](review_app/README.md) for details.
+
+Export without the UI:
+
+```bash
+python -m review_app.export
+```
+
 ## Requirements
 
 - Snakemake 9.x and Conda/Mamba for the per-rule environments
@@ -231,7 +262,8 @@ pre-commit install
 The hooks run `snakefmt --check` and `snakemake --lint` on `workflow/` and
 `config/` changes, and `ruff check` / `ruff format --check` on the Python
 sources. The `.github/workflows/sra-peco-ci.yml` workflow repeats these checks
-on push and pull request, plus a `snakemake -n` dry run.
+on push and pull request, plus a `snakemake -n` dry run and the review-app
+tests.
 
 ## RAG CLI
 

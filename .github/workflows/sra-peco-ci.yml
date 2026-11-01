@@ -5,6 +5,7 @@ on:
     paths:
       - "workflow/**"
       - "config/**"
+      - "review_app/**"
       - "src/**"
       - ".test/**"
       - ".snakemake-workflow-catalog.yml"
@@ -16,6 +17,7 @@ on:
     paths:
       - "workflow/**"
       - "config/**"
+      - "review_app/**"
       - "src/**"
       - ".test/**"
       - ".snakemake-workflow-catalog.yml"
@@ -55,6 +57,20 @@ jobs:
       - name: Install ruff
         run: pip install "ruff==0.17.3"
       - name: Check format
-        run: ruff format --check src workflow/scripts
+        run: ruff format --check src workflow/scripts workflow/tests review_app
       - name: Lint
-        run: ruff check src workflow/scripts
+        run: ruff check src workflow/scripts workflow/tests review_app
+
+  review-app:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r review_app/requirements-dev.txt
+      - name: Test
+        run: pytest -q review_app/tests workflow/tests

@@ -40,4 +40,5 @@ rule all:
         expand("results/germplasm/{run}.json", run=RUNS),
         expand("results/exposure/{run}.json", run=RUNS),
         expand("results/study_condition/{run}.json", run=RUNS),
+        expand("resources/bioproject/{prjna}.json", prjna=PRJNAS),
         "results/labels.tsv",

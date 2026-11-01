@@ -210,6 +210,7 @@ __marimo__/
 .snakemake/
 /workflow/.snakemake/
 /.test/.snakemake/
+/.streamlit/
 /results/*
 !/results/.gitkeep
 /resources/*
