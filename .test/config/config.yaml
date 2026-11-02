@@ -49,15 +49,28 @@ germplasm:
     mutant: A mutant line.
     unknown: Insufficient evidence.
 
+rna_type:
+  accepted_rna_types:
+    - mrna
+    - ribo_depleted_total_rna
+  attribute_keys:
+    - rna type
+  min_confidence: 0.6
+
 review:
   tissue_confidence: 0.6
   germplasm_confidence: 0.6
   exposure_retrieval_score: 0.55
   study_confidence: 0.6
+  rna_type_confidence: 0.6
   flag_missing_paper: true
   flag_low_confidence_paper: true
 
 models:
+  rna_type_backend: rules
+  rna_type: test-model
+  rna_type_decision: test-model
+  rna_type_params: {}
   tissue_backend: chat
   tissue: test-model
   tissue_decision: test-model
