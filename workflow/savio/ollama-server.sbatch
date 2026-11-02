@@ -6,8 +6,8 @@
 #SBATCH --gres=gpu:H200:1
 #SBATCH --cpus-per-gpu 32
 #SBATCH --time=12:00:00
-#SBATCH --output=logs/slurm/ollama-%j.out
-#SBATCH --error=logs/slurm/ollama-%j.err
+#SBATCH --output=.snakemake/slurm_logs/ollama-%j.out
+#SBATCH --error=.snakemake/slurm_logs/ollama-%j.err
 
 set -euo pipefail
 

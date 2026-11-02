@@ -2,4 +2,5 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
+  - python=3.12
   - pandas=3.1.0

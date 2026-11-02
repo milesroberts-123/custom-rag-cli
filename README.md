@@ -223,9 +223,9 @@ bash workflow/savio/run.sh
 
 `run.sh` submits one H200 job that serves Ollama on `0.0.0.0:11434`, waits for
 it to warm `qwen3.8`, checks that the login node can reach it, then runs
-Snakemake with the `savio` profile. Rules run on `savio4_htc` and connect to the
-model server over the network. `HF_HOME` and the conda prefix are redirected to
-scratch.
+Snakemake with the default Slurm profile (`workflow/profiles/default`). Rules
+run on `savio4_htc` and connect to the model server over the network. `HF_HOME`
+and the conda prefix are redirected to scratch.
 
 If compute-node networking is blocked, `run.sh` exits with a clear error. In
 that case the fallback is per-rule GPU jobs, which reload the models per job.

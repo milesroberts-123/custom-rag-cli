@@ -14,6 +14,7 @@ repos:
         language: python
         additional_dependencies:
           - snakemake==9.27.1
+          - snakemake-executor-plugin-slurm==2.8.0
           - pandas>=2.2,<3
           - jsonschema>=4,<5
           - pyyaml>=6,<7

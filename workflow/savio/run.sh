@@ -4,7 +4,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-mkdir -p logs/slurm resources
+mkdir -p .snakemake/slurm_logs resources
 
 export PATH="/global/scratch/users/$USER/envs/sra-peco/bin:$PATH"
 export HF_HOME="${HF_HOME:-/global/scratch/users/$USER/hf-cache}"
@@ -24,7 +24,7 @@ done
 
 if [[ ! -f "$SERVER_FILE" ]]; then
     echo "The Ollama server did not become ready within an hour." >&2
-    echo "Inspect logs/slurm/ollama-${JOB_ID}.out" >&2
+    echo "Inspect .snakemake/slurm_logs/ollama-${JOB_ID}.out" >&2
     scancel "$JOB_ID" || true
     exit 1
 fi
@@ -47,7 +47,6 @@ if ! curl -sf "$OLLAMA_SERVER/api/tags" >/dev/null; then
 fi
 
 snakemake \
-    --profile workflow/profiles/savio \
     --sdm conda \
     --conda-prefix "/global/scratch/users/$USER/conda-envs/sra-peco" \
     "$@"

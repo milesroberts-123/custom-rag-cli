@@ -2,7 +2,6 @@ executor: slurm
 jobs: 16
 latency-wait: 60
 rerun-incomplete: true
-slurm-logdir: logs/slurm
 slurm-qos: moilab_htc4_normal
 default-resources:
   slurm_account: co_moilab
