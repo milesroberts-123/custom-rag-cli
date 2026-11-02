@@ -29,7 +29,6 @@ Annotation guidance:
 - control exposure: long-day (>= 12 h light, not constant), 18-26 C, with no
   explicit stress or nutrient limitation.
 - high temperature: >= 27 C; cold: <= 17 C; short day: < 12 h light.
-- PEG treatment counts as drought exposure.
 - Samples recovering from stress are labeled by the recovery condition.
 - Multiple exposure terms are allowed when several stresses apply.
 - If the sample has no experimental exposure to annotate, return an empty list

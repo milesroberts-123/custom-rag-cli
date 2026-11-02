@@ -122,8 +122,7 @@ without inventing a third PECO branch.
 The exposure prompt uses the paper's annotation conventions: control is
 long-day (≥12 h light, not constant), 18–26 °C, no stress or nutrient
 limitation; high temperature is ≥27 °C; cold is ≤17 °C; short day is <12 h
-light; PEG counts as drought; recovery samples are labeled by the recovery
-condition.
+light; recovery samples are labeled by the recovery condition.
 
 If a condition exists but no candidate fits, the exposure layer returns
 `other: true` with a free-text `suggested_label` for review. `unknown`/`OTHER`
