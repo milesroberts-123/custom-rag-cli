@@ -2,6 +2,5 @@ channels:
   - conda-forge
   - nodefaults
 dependencies:
-  - python=3.12
-  - curl=8.11.1
-  - requests=2.32.3
+  - curl=8.23.0
+  - requests=2.34.2
