@@ -208,15 +208,40 @@ germplasm:
     aneuploid: An aneuploid plant.
     unknown: Insufficient evidence to determine the germplasm type.
 
+rna_type:
+  # Include ribo-depleted total RNA with polyA-selected mRNA.
+  accepted_rna_types:
+    - mrna
+    - ribo_depleted_total_rna
+  attribute_keys:
+    - rna type
+    - rna_type
+    - library type
+    - library_type
+    - library preparation
+    - library_preparation
+    - rna extraction
+    - rna_extraction
+    - extraction method
+    - assay type
+    - assay_type
+    - sequencing method
+    - nucleic acid extraction
+  min_confidence: 0.6
+
 review:
   tissue_confidence: 0.6
   germplasm_confidence: 0.6
   exposure_retrieval_score: 0.55
   study_confidence: 0.6
+  rna_type_confidence: 0.6
   flag_missing_paper: true
   flag_low_confidence_paper: true
 
 models:
+  rna_type_backend: decision
+  rna_type: qwen3.8
+  rna_type_decision: tev1:4b
   tissue_backend: decision
   tissue: qwen3.8
   tissue_decision: tev1:4b
@@ -228,6 +253,8 @@ models:
   study: qwen3.8
   study_decision: tev1:4b
   summary: qwen3.8
+  rna_type_params:
+    temperature: 0
   tissue_params:
     temperature: 0
   germplasm_params:

@@ -16,6 +16,8 @@ Run the workflow first so these exist:
 
 ```text
 results/labels.tsv
+results/labels.excluded.tsv
+results/rna_type/{run}.json
 results/tissue/{run}.json
 results/germplasm/{run}.json
 results/exposure/{run}.json
@@ -57,6 +59,10 @@ ssh -L 8501:localhost:8501 <savio-login-host>
 
 Then open <http://127.0.0.1:8501> locally. Do not run multiple app processes
 against the same SQLite file on a shared filesystem.
+
+The app reviews only the mRNA-eligible runs in `results/labels.tsv`. Runs
+excluded by the RNA-type filter are listed in `results/labels.excluded.tsv` and
+are not shown in the review queue.
 
 ## Review flow
 

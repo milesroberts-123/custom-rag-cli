@@ -38,6 +38,13 @@ def _parse(xml_bytes):
             if tag:
                 attributes[tag] = value
 
+        experiment_attributes = {}
+        for attribute in package.findall(".//EXPERIMENT_ATTRIBUTE"):
+            tag = _text(attribute, "TAG")
+            value = _text(attribute, "VALUE")
+            if tag:
+                experiment_attributes[tag] = value
+
         record = {
             "experiment_accession": experiment.get("accession"),
             "experiment_title": _text(experiment, "TITLE"),
@@ -47,12 +54,24 @@ def _parse(xml_bytes):
             "library_strategy": (
                 _text(library, "LIBRARY_STRATEGY") if library is not None else ""
             ),
+            "library_selection": (
+                _text(library, "LIBRARY_SELECTION") if library is not None else ""
+            ),
+            "library_source": (
+                _text(library, "LIBRARY_SOURCE") if library is not None else ""
+            ),
+            "library_construction_protocol": (
+                _text(library, "LIBRARY_CONSTRUCTION_PROTOCOL")
+                if library is not None
+                else ""
+            ),
             "sample_accession": sample.get("accession") if sample is not None else None,
             "sample_name": sample_name,
             "study_accession": study.get("accession") if study is not None else None,
             "study_title": _text(package, ".//STUDY_TITLE"),
             "study_abstract": _text(package, ".//STUDY_ABSTRACT"),
             "sample_attributes": attributes,
+            "experiment_attributes": experiment_attributes,
         }
         for run in package.findall(".//RUN"):
             accession = run.get("accession")

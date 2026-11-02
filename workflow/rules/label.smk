@@ -1,5 +1,6 @@
 rule label_tissue:
     input:
+        rna_type=rna_type_file,
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
@@ -21,6 +22,7 @@ rule label_tissue:
 
 rule label_germplasm:
     input:
+        rna_type=rna_type_file,
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
@@ -43,6 +45,7 @@ rule label_germplasm:
 
 rule label_exposure:
     input:
+        rna_type=rna_type_file,
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
@@ -63,6 +66,7 @@ rule label_exposure:
 
 rule label_study_condition:
     input:
+        rna_type=rna_type_file,
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
@@ -81,6 +85,7 @@ rule label_study_condition:
 
 rule aggregate:
     input:
+        rna_type=expand("results/rna_type/{run}.json", run=RUNS),
         tissue=expand("results/tissue/{run}.json", run=RUNS),
         germplasm=expand("results/germplasm/{run}.json", run=RUNS),
         exposure=expand("results/exposure/{run}.json", run=RUNS),
@@ -88,11 +93,12 @@ rule aggregate:
         summaries=expand("results/summary/{prjna}.json", prjna=PRJNAS),
         index="resources/peco_index",
     output:
-        report(
+        labels=report(
             "results/labels.tsv",
             caption="../report/labels.rst",
             category="Labels",
         ),
+        excluded="results/labels.excluded.tsv",
     log:
         "logs/aggregate.log",
     conda:

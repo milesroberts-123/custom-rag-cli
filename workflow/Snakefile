@@ -30,15 +30,18 @@ include: "rules/common.smk"
 include: "rules/fetch.smk"
 include: "rules/paper.smk"
 include: "rules/peco.smk"
+include: "rules/rna.smk"
 include: "rules/label.smk"
 
 
 rule all:
     default_target: True
     input:
+        expand("results/rna_type/{run}.json", run=RUNS),
         expand("results/tissue/{run}.json", run=RUNS),
         expand("results/germplasm/{run}.json", run=RUNS),
         expand("results/exposure/{run}.json", run=RUNS),
         expand("results/study_condition/{run}.json", run=RUNS),
         expand("resources/bioproject/{prjna}.json", prjna=PRJNAS),
         "results/labels.tsv",
+        "results/labels.excluded.tsv",

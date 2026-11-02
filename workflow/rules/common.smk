@@ -26,6 +26,11 @@ def sra_file(wildcards):
     return f"resources/sra/{wildcards.run}.json"
 
 
+def rna_type_file(wildcards):
+    """Input function: RNA type classification for a run."""
+    return f"results/rna_type/{wildcards.run}.json"
+
+
 def summary_file(wildcards):
     """Input function: per-project paper summary for a run."""
     return f"results/summary/{prjna_of(wildcards.run)}.json"

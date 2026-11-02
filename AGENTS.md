@@ -53,6 +53,10 @@ lint/format/test checks in CI.
 - `fetch_sra_metadata` is required for germplasm classification: mutant and
   transgenic signals often live in the SRA experiment title or library name,
   not in the BioSample record.
+- `classify_rna_type` is a hard inclusion filter before labeling. Only
+  `accepted_rna_types` reach `results/labels.tsv`; all others go to
+  `results/labels.excluded.tsv`. The four label rules short-circuit with a
+  stub for excluded runs, so keep their `rna_type` input wired.
 - `fetch_bioprojects` supplies the BioProject metadata shown in the review app.
   Do not remove it from `rule all` without checking the app's fallback.
 

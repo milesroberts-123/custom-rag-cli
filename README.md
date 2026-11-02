@@ -23,12 +23,15 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
    publication are skipped.
 3. Fetch open-access full text (or the abstract) from Europe PMC.
 4. Summarize the paper's experimental conditions once per BioProject.
-5. Label each run's tissue category.
-6. Classify each run's germplasm: natural accession, mutant, transgenic, hybrid,
-   grafted, cell culture, polyploid, aneuploid, or unknown.
-7. Label plant exposure PECO terms from the `PECO:0001001` branch.
-8. Label the PECO plant study condition from the `PECO:0007231` branch.
-9. Aggregate everything into `results/labels.tsv`.
+5. Classify each run's RNA type; only mRNA and ribo-depleted total RNA
+   continue.
+6. Label each retained run's tissue category.
+7. Classify each retained run's germplasm: natural accession, mutant,
+   transgenic, hybrid, grafted, cell culture, polyploid, aneuploid, or unknown.
+8. Label plant exposure PECO terms from the `PECO:0001001` branch.
+9. Label the PECO plant study condition from the `PECO:0007231` branch.
+10. Aggregate retained runs into `results/labels.tsv` and excluded runs into
+    `results/labels.excluded.tsv`.
 
 ## Inputs
 
@@ -49,6 +52,7 @@ The default stack runs against one local Ollama server:
 
 | Step | Model | Endpoint |
 |---|---|---|
+| RNA type | `tev1:4b` | `/v1/systemone` (decision) |
 | Tissue | `tev1:4b` | `/v1/systemone` (decision) |
 | Germplasm | `tev1:4b` | `/v1/systemone` (decision) |
 | Study condition | `tev1:4b` | `/v1/systemone` (decision) |
@@ -61,12 +65,31 @@ fails. `config/config.yaml` sets `ollama.server_url` and `ollama.api_key`; the
 
 Tev1 requires Ollama 0.35 or newer. This workflow targets Ollama 0.40.11.
 
+## RNA type filter
+
+The workflow classifies the RNA species from SRA `library_strategy`,
+`library_selection`, the library construction protocol, and selected
+BioSample attributes. It does not use the paper, because a BioProject can mix
+library types.
+
+- `mrna` — polyA, poly(A), or oligo(dT) evidence.
+- `ribo_depleted_total_rna` — RiboZero or rRNA-depleted total RNA.
+- `total_rna` — total RNA without depletion.
+- `small_rna` — miRNA, piRNA, siRNA, snoRNA, tRNA, or other small RNA.
+- `lncrna`, `circrna`, `other_rna`, `not_rna`, `unknown`.
+
+By default, `mrna` and `ribo_depleted_total_rna` continue to labeling. Change
+`rna_type.accepted_rna_types` in `config/config.yaml` to alter that policy.
+Excluded runs are written to `results/labels.excluded.tsv` with the RNA type,
+source, evidence, and exclusion reason. Labeling rules short-circuit for
+excluded runs, so they do not call Ollama or load the PECO index.
+
 ## Germplasm categories
 
 The germplasm step mirrors the manual filtering in the paper: natural
 accessions are retained, and modified lines are flagged for downstream
-filtering. Every run stays in the workflow; `is_natural_accession` is the
-filter column.
+filtering. Every mRNA-eligible run stays in this step; `is_natural_accession`
+is the filter column.
 
 - `natural_accession`
 - `mutant`
@@ -115,9 +138,11 @@ The paper's categories, with flower and fruit separated:
 
 ## Output
 
-`results/labels.tsv` contains:
+`results/labels.tsv` contains only mRNA-eligible runs:
 
 - `run`, `biosample`, `bioproject`, `species`
+- `rna_type`, `rna_subtype`, `ribo_depleted`, `mrna_eligible`,
+  `rna_type_source`, `rna_type_confidence`, `rna_type_evidence`
 - `tissue`, `tissue_source`, `tissue_confidence`
 - `germplasm_type`, `is_natural_accession`, `germplasm_confidence`,
   `germplasm_evidence`
@@ -128,9 +153,15 @@ The paper's categories, with flower and fruit separated:
 - `has_paper`, `paper_low_confidence`
 - `review_required`, `review_reasons`
 
-Review reasons: `tissue_other`, `tissue_low_confidence`, `germplasm_unknown`,
-`germplasm_low_confidence`, `exposure_other`, `exposure_weak_retrieval`,
-`study_other`, `study_low_confidence`, `no_paper`, `paper_low_confidence`.
+Review reasons: `rna_type_low_confidence`, `tissue_other`,
+`tissue_low_confidence`, `germplasm_unknown`, `germplasm_low_confidence`,
+`exposure_other`, `exposure_weak_retrieval`, `study_other`,
+`study_low_confidence`, `no_paper`, `paper_low_confidence`.
+
+`results/labels.excluded.tsv` contains only non-eligible runs with `run`,
+`biosample`, `bioproject`, `species`, `rna_type`, `rna_subtype`,
+`ribo_depleted`, `rna_type_source`, `rna_type_confidence`, `rna_type_evidence`,
+and `exclusion_reason`.
 
 ## Human review
 

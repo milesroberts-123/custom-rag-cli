@@ -88,6 +88,19 @@ Path to the sample sheet. Default: `config/samples.tsv`.
 The default categories are `natural_accession`, `mutant`, `transgenic`,
 `hybrid`, `grafted`, `cell_culture`, `polyploid`, `aneuploid`, and `unknown`.
 
+## `rna_type`
+
+| Key | Description |
+|---|---|
+| `accepted_rna_types` | RNA types that continue to labeling. Defaults to `mrna` and `ribo_depleted_total_rna`. |
+| `attribute_keys` | BioSample and SRA attribute names searched for RNA-type evidence. |
+| `min_confidence` | Minimum model confidence for a fallback RNA-type call; lower values become `unknown`. |
+
+The classifier uses SRA `library_strategy`, `library_selection`,
+`library_source`, the library construction protocol, and selected BioSample or
+SRA attributes. It does not use the paper. Other RNA types are written to
+`results/labels.excluded.tsv`.
+
 ## `review`
 
 | Key | Default | Description |
@@ -96,6 +109,7 @@ The default categories are `natural_accession`, `mutant`, `transgenic`,
 | `germplasm_confidence` | `0.6` | Flag germplasm calls below this confidence. |
 | `exposure_retrieval_score` | `0.55` | Flag exposure calls with a lower top retrieval score. |
 | `study_confidence` | `0.6` | Flag study-condition calls below this confidence. |
+| `rna_type_confidence` | `0.6` | Flag included RNA-type calls below this confidence. |
 | `flag_missing_paper` | `true` | Flag projects without a linked paper. |
 | `flag_low_confidence_paper` | `true` | Flag abstract-only or low-confidence paper summaries. |
 
@@ -103,6 +117,9 @@ The default categories are `natural_accession`, `mutant`, `transgenic`,
 
 | Key | Default | Description |
 |---|---|---|
+| `rna_type_backend` | `decision` | `decision`, `chat`, or `rules`. |
+| `rna_type` | `qwen3.8` | Chat fallback model for RNA type. |
+| `rna_type_decision` | `tev1:4b` | Tev1 decision model for RNA type. |
 | `tissue_backend` | `decision` | `decision` uses `/v1/systemone`; `chat` uses the chat endpoint. |
 | `tissue` | `qwen3.8` | Chat fallback model for tissue. |
 | `tissue_decision` | `tev1:4b` | Tev1 decision model for tissue. |

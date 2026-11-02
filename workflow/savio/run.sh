@@ -46,10 +46,5 @@ if ! curl -sf "$OLLAMA_SERVER/api/tags" >/dev/null; then
     exit 1
 fi
 
-# run snakemake
-snakemake --sdm conda --no-temp --config samples=config/samples.tsv
-
-#snakemake \
-#    --sdm conda \
-#    --conda-prefix "/global/scratch/users/$USER/conda-envs/sra-peco" \
-#    "$@"
+# run snakemake with any extra arguments passed through
+snakemake --sdm conda --no-temp "$@"

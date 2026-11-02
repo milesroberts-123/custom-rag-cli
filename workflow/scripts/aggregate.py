@@ -5,9 +5,73 @@ from pathlib import Path
 
 import pandas as pd
 
+LABEL_COLUMNS = [
+    "run",
+    "biosample",
+    "bioproject",
+    "species",
+    "rna_type",
+    "rna_subtype",
+    "ribo_depleted",
+    "mrna_eligible",
+    "rna_type_source",
+    "rna_type_confidence",
+    "rna_type_evidence",
+    "tissue",
+    "tissue_source",
+    "tissue_confidence",
+    "germplasm_type",
+    "is_natural_accession",
+    "germplasm_confidence",
+    "germplasm_evidence",
+    "peco_exposure_ids",
+    "peco_exposure_labels",
+    "peco_exposure_evidence",
+    "peco_exposure_other",
+    "peco_exposure_max_score",
+    "peco_study_id",
+    "peco_study_label",
+    "peco_study_confidence",
+    "growth_system_ids",
+    "growth_system_labels",
+    "has_paper",
+    "paper_low_confidence",
+    "review_required",
+    "review_reasons",
+]
 
-def _review_reasons(tissue, germplasm, exposure, study, summary, review):
+EXCLUDED_COLUMNS = [
+    "run",
+    "biosample",
+    "bioproject",
+    "species",
+    "rna_type",
+    "rna_subtype",
+    "ribo_depleted",
+    "rna_type_source",
+    "rna_type_confidence",
+    "rna_type_evidence",
+    "exclusion_reason",
+]
+
+
+def _exclusion_reason(rna_type):
+    category = rna_type.get("rna_type") or "unknown"
+    if category == "unknown":
+        return "rna_type_unknown"
+    if category == "not_rna":
+        return "not_rna_assay"
+    return f"rna_type_{category}_not_accepted"
+
+
+def _review_reasons(tissue, germplasm, exposure, study, summary, rna_type, review):
     reasons = []
+
+    confidence = rna_type.get("confidence")
+    if isinstance(confidence, (int, float)) and confidence < float(
+        review["rna_type_confidence"]
+    ):
+        reasons.append("rna_type_low_confidence")
 
     if (
         tissue.get("tissue") in (None, "OTHER")
@@ -53,12 +117,14 @@ def _review_reasons(tissue, germplasm, exposure, study, summary, review):
 
 def main():
     samples = pd.read_table(snakemake.params.samples, dtype=str)
+    rna_type_paths = list(snakemake.input.rna_type)
     tissue_paths = list(snakemake.input.tissue)
     germplasm_paths = list(snakemake.input.germplasm)
     exposure_paths = list(snakemake.input.exposure)
     study_paths = list(snakemake.input.study)
     if not (
         len(samples)
+        == len(rna_type_paths)
         == len(tissue_paths)
         == len(germplasm_paths)
         == len(exposure_paths)
@@ -72,13 +138,41 @@ def main():
     }
     review = dict(snakemake.params.review)
     rows = []
-    for sample, tissue_path, germplasm_path, exposure_path, study_path in zip(
+    excluded = []
+    for (
+        sample,
+        rna_type_path,
+        tissue_path,
+        germplasm_path,
+        exposure_path,
+        study_path,
+    ) in zip(
         samples.itertuples(),
+        rna_type_paths,
         tissue_paths,
         germplasm_paths,
         exposure_paths,
         study_paths,
     ):
+        rna_type = json.loads(Path(rna_type_path).read_text())
+        if not rna_type.get("mrna_eligible", False):
+            excluded.append(
+                {
+                    "run": sample.run,
+                    "biosample": sample.biosample,
+                    "bioproject": sample.bioproject,
+                    "species": sample.species,
+                    "rna_type": rna_type.get("rna_type"),
+                    "rna_subtype": rna_type.get("rna_subtype") or "",
+                    "ribo_depleted": bool(rna_type.get("ribo_depleted", False)),
+                    "rna_type_source": rna_type.get("source", ""),
+                    "rna_type_confidence": rna_type.get("confidence"),
+                    "rna_type_evidence": rna_type.get("evidence", ""),
+                    "exclusion_reason": _exclusion_reason(rna_type),
+                }
+            )
+            continue
+
         tissue = json.loads(Path(tissue_path).read_text())
         germplasm = json.loads(Path(germplasm_path).read_text())
         exposure = json.loads(Path(exposure_path).read_text())
@@ -95,7 +189,9 @@ def main():
             for term in exposure.get("terms", [])
             if terms.get(term["term_id"], {}).get("growth_system")
         ]
-        reasons = _review_reasons(tissue, germplasm, exposure, study, summary, review)
+        reasons = _review_reasons(
+            tissue, germplasm, exposure, study, summary, rna_type, review
+        )
 
         rows.append(
             {
@@ -103,6 +199,13 @@ def main():
                 "biosample": sample.biosample,
                 "bioproject": sample.bioproject,
                 "species": sample.species,
+                "rna_type": rna_type.get("rna_type"),
+                "rna_subtype": rna_type.get("rna_subtype") or "",
+                "ribo_depleted": bool(rna_type.get("ribo_depleted", False)),
+                "mrna_eligible": True,
+                "rna_type_source": rna_type.get("source", ""),
+                "rna_type_confidence": rna_type.get("confidence"),
+                "rna_type_evidence": rna_type.get("evidence", ""),
                 "tissue": tissue.get("tissue"),
                 "tissue_source": tissue.get("source"),
                 "tissue_confidence": tissue.get("confidence"),
@@ -135,10 +238,15 @@ def main():
             }
         )
 
-    frame = pd.DataFrame(rows)
-    output = Path(snakemake.output[0])
+    frame = pd.DataFrame(rows, columns=LABEL_COLUMNS)
+    output = Path(snakemake.output.labels)
     output.parent.mkdir(parents=True, exist_ok=True)
     frame.to_csv(output, sep="\t", index=False)
+
+    excluded_frame = pd.DataFrame(excluded, columns=EXCLUDED_COLUMNS)
+    excluded_output = Path(snakemake.output.excluded)
+    excluded_output.parent.mkdir(parents=True, exist_ok=True)
+    excluded_frame.to_csv(excluded_output, sep="\t", index=False)
 
 
 if __name__ == "__main__":

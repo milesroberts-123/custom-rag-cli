@@ -126,6 +126,42 @@ properties:
         default: {}
     required:
       - categories
+  rna_type:
+    type: object
+    properties:
+      accepted_rna_types:
+        type: array
+        items:
+          type: string
+        minItems: 1
+        default:
+          - mrna
+          - ribo_depleted_total_rna
+      attribute_keys:
+        type: array
+        items:
+          type: string
+        default:
+          - rna type
+          - rna_type
+          - library type
+          - library_type
+          - library preparation
+          - library_preparation
+          - rna extraction
+          - rna_extraction
+          - extraction method
+          - assay type
+          - assay_type
+          - sequencing method
+          - nucleic acid extraction
+      min_confidence:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.6
+    required:
+      - accepted_rna_types
   review:
     type: object
     properties:
@@ -149,6 +185,11 @@ properties:
         minimum: 0
         maximum: 1
         default: 0.6
+      rna_type_confidence:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.6
       flag_missing_paper:
         type: boolean
         default: true
@@ -160,11 +201,26 @@ properties:
       - germplasm_confidence
       - exposure_retrieval_score
       - study_confidence
+      - rna_type_confidence
       - flag_missing_paper
       - flag_low_confidence_paper
   models:
     type: object
     properties:
+      rna_type_backend:
+        type: string
+        enum:
+          - decision
+          - chat
+          - rules
+        default: decision
+      rna_type:
+        type: string
+      rna_type_decision:
+        type: string
+      rna_type_params:
+        type: object
+        default: {}
       tissue_backend:
         type: string
         enum:
@@ -215,6 +271,9 @@ properties:
         type: object
         default: {}
     required:
+      - rna_type_backend
+      - rna_type
+      - rna_type_decision
       - tissue_backend
       - tissue
       - tissue_decision
@@ -243,6 +302,7 @@ required:
   - paper
   - tissue
   - germplasm
+  - rna_type
   - review
   - models
   - ollama

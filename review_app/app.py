@@ -25,6 +25,9 @@ SRA_FIELDS = (
     ("experiment_title", "Experiment title"),
     ("library_name", "Library name"),
     ("library_strategy", "Library strategy"),
+    ("library_selection", "Library selection"),
+    ("library_source", "Library source"),
+    ("library_construction_protocol", "Library construction protocol"),
     ("sample_accession", "SRA sample accession"),
     ("sample_name", "Sample name"),
     ("study_accession", "Study accession"),
@@ -200,6 +203,8 @@ def _metadata_tabs(
             )
             st.json(bioproject.get("project_type") or {})
     with tabs[4]:
+        st.markdown("**RNA type**")
+        st.json(bundle["rna_type"])
         st.markdown("**Tissue**")
         st.json(bundle["tissue"])
         st.markdown("**Germplasm**")

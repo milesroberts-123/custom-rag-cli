@@ -7,6 +7,7 @@ from pathlib import Path
 
 from evidence import evidence_lines
 from llm import chat_json, make_client, systemone
+from skip import load_rna_type, write_skip
 
 OTHER = "OTHER"
 
@@ -99,6 +100,11 @@ def _chat(client, model, model_params, values, summary, categories, other_descri
 
 
 def main():
+    rna_type = load_rna_type(snakemake.input.rna_type)
+    if not rna_type.get("mrna_eligible"):
+        write_skip(snakemake.wildcards.run, rna_type, snakemake.output[0])
+        return
+
     with open(snakemake.input.biosample) as handle:
         biosample = json.load(handle)
     with open(snakemake.input.sra) as handle:

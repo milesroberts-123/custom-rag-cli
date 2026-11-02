@@ -7,7 +7,7 @@ builtins = ["snakemake"]
 select = ["E4", "E7", "E9", "F", "I", "W"]
 
 [lint.isort]
-known-first-party = ["evidence", "http_utils", "llm", "ncbi"]
+known-first-party = ["evidence", "http_utils", "llm", "ncbi", "skip"]
 known-third-party = [
     "click",
     "llama_index",
