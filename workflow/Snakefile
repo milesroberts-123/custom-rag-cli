@@ -2,10 +2,10 @@
 
 from snakemake.utils import min_version, validate
 
-min_version("9.0")
+min_version("9.13")
 
 
-configfile: "config/config.yaml"
+configfile: "../config/config.yaml"
 
 
 conda: "envs/global.yaml"
