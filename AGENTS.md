@@ -26,9 +26,10 @@ lint/format/test checks in CI.
 ## Paper retrieval
 
 - `src/retrive_k-mer_papers.py` is a separate script, not part of the RAG CLI.
-  It uses the `pypaperretriever` environment (`pypaperretriever.yaml`), searches
-  PubMed, downloads PDFs into `PDFs/`, and extracts images. It makes live
-  network calls and writes files; only run it intentionally.
+  It requires the `pypaperretriever` package in its Python environment,
+  searches PubMed, downloads PDFs into `PDFs/`, and extracts images. It makes
+  live network calls and writes files; only run it intentionally. No
+  environment file for it is checked in.
 - Filename and env spellings (`retrive`, `pypaperretriver`) are inconsistent.
   Keep existing paths unless you are deliberately renaming them.
 
@@ -81,8 +82,8 @@ lint/format/test checks in CI.
 
 ## Environment files
 
-- `setup.yaml` and `pypaperretriever.yaml` are `conda env export` snapshots with
-  hardcoded `prefix:` values for the Berkeley Savio cluster. Treat them as
-  reproducible specs for that cluster, not portable lockfiles.
+- `setup.yaml` is a `conda env export` snapshot with a hardcoded `prefix:`
+  value for the Berkeley Savio cluster. Treat it as a reproducible spec for
+  that cluster, not a portable lockfile.
 - Verification is end-to-end: run the CLI against a small PDF directory with
   Ollama and the model available. There is no faster test target.
