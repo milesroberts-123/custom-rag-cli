@@ -130,6 +130,7 @@ in the review app and carried into `labels.tsv`.
 | `enabled` | `true` | Query PlantRNADB for curated Arabidopsis annotations. |
 | `base_url` | `https://plantrnadb.com/athrdb/Search.php` | Search endpoint. |
 | `min_interval_seconds` | `2.0` | Minimum wall time between ATHRDB requests. The fetch is a single serial job, so this caps the request rate regardless of run count. |
+| `jitter_fraction` | `0.25` | One-sided random jitter: each gap is `min_interval_seconds` plus up to this fraction of it, so the cadence is not a fixed metronome. `0` disables jitter. |
 | `max_requests` | `5000` | Hard cap per fetch job; remaining runs get `request_cap_reached` stubs. `0` disables the cap. |
 | `timeout` | `60` | Per-request HTTP timeout, seconds. |
 

@@ -66,6 +66,11 @@ properties:
       min_interval_seconds:
         type: number
         minimum: 0
+      jitter_fraction:
+        type: number
+        minimum: 0
+        maximum: 1
+        default: 0.25
       max_requests:
         type: integer
         minimum: 0

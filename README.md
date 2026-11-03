@@ -142,7 +142,10 @@ keyed by GEO GSM accession.
 - **Rate limiting**: ATHRDB queries run in a single serial Snakemake job, so
   the request rate never exceeds one request per
   `athrdb.min_interval_seconds` (default 2 s) regardless of how many jobs the
-  workflow submits. A hard cap `athrdb.max_requests` (default 5000) leaves the
+  workflow submits. Gaps get one-sided random jitter
+  (`athrdb.jitter_fraction`, default 0.25) so the cadence is not a perfectly
+  uniform interval; the gap never drops below the floor. A hard cap
+  `athrdb.max_requests` (default 5000) leaves the
   remaining runs with `request_cap_reached` stubs; `athrdb.enabled: false`
   skips the site entirely. Skips are marked in `athrdb_note`, and reruns only
   query runs without an existing `resources/athrdb/{run}.json`.

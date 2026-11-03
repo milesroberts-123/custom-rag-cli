@@ -75,6 +75,41 @@ def test_pacer_enforces_minimum_interval():
     assert slept == [1.5]
 
 
+def test_pacer_jitter_never_shrinks_gap():
+    now = [0.0]
+    slept = []
+    pacer = athrdb.RequestPacer(
+        2.0,
+        clock=lambda: now[0],
+        sleeper=lambda seconds: slept.append(seconds),
+        rng=lambda low, high: high,  # maximum jitter: 2.0 * 0.75 = 1.5
+        jitter_fraction=0.75,
+    )
+    pacer.wait()
+    now[0] = 0.0
+    pacer.wait()
+    assert slept == [2.0 + 1.5]  # full floor plus full jitter, never less
+    now[0] = 5.0  # elapsed exceeds the floor; floor contributes zero
+    pacer.wait()
+    assert slept == [2.0 + 1.5, 1.5]  # jitter alone, still positive
+
+
+def test_pacer_jitter_disabled_when_fraction_zero():
+    now = [0.0]
+    slept = []
+    pacer = athrdb.RequestPacer(
+        2.0,
+        clock=lambda: now[0],
+        sleeper=lambda seconds: slept.append(seconds),
+        rng=lambda low, high: 99.0,
+        jitter_fraction=0.0,
+    )
+    pacer.wait()
+    now[0] = 0.0
+    pacer.wait()
+    assert slept == [2.0]
+
+
 class FakeSession:
     def __init__(self, text, status_code=200):
         self.text = text

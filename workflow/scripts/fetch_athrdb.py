@@ -31,12 +31,29 @@ def is_arabidopsis(species):
 
 
 class RequestPacer:
-    """Enforce a minimum interval between HTTP requests."""
+    """Enforce a minimum interval between HTTP requests, with jitter.
 
-    def __init__(self, min_interval_seconds, clock=time.monotonic, sleeper=time.sleep):
+    The gap between consecutive waits is at least ``min_interval`` seconds,
+    plus a random amount up to ``jitter_fraction * min_interval`` when a
+    random source is provided. Jitter is one-sided (never shortens the gap
+    below the configured floor).
+    """
+
+    def __init__(
+        self,
+        min_interval_seconds,
+        clock=time.monotonic,
+        sleeper=time.sleep,
+        rng=None,
+        jitter_fraction=0.0,
+    ):
+        import random
+
         self.min_interval = max(0.0, float(min_interval_seconds))
+        self.jitter_fraction = max(0.0, float(jitter_fraction))
         self.clock = clock
         self.sleeper = sleeper
+        self.rng = rng or random.uniform
         self._last = None
 
     def wait(self):
@@ -45,8 +62,13 @@ class RequestPacer:
             self._last = self.clock()
             return
         remaining = self.min_interval - (self.clock() - self._last)
-        if remaining > 0:
-            self.sleeper(remaining)
+        if remaining < 0:
+            remaining = 0.0
+        delay = remaining
+        if self.min_interval > 0 and self.jitter_fraction > 0:
+            delay += self.rng(0.0, self.min_interval * self.jitter_fraction)
+        if delay > 0:
+            self.sleeper(delay)
         self._last = self.clock()
 
 
@@ -137,11 +159,18 @@ def find_gsm(srx, email, api_key, max_retries, timeout=120):
 class AthrdbClient:
     """Query the ATHRDB Search endpoint with rate limiting and soft retries."""
 
-    def __init__(self, base_url, min_interval_seconds, timeout, session=None):
+    def __init__(
+        self,
+        base_url,
+        min_interval_seconds,
+        timeout,
+        session=None,
+        jitter_fraction=0.0,
+    ):
         self.search_url = f"{base_url.rstrip('/')}"
         self.timeout = timeout
         self.session = session or _default_session()
-        self.pacer = RequestPacer(min_interval_seconds)
+        self.pacer = RequestPacer(min_interval_seconds, jitter_fraction=jitter_fraction)
 
     def fetch_library(self, gsm):
         """Return parsed annotations for one GSM, or None when not curated.
@@ -254,6 +283,7 @@ def main():
                             athrdb["base_url"],
                             athrdb.get("min_interval_seconds", 2.0),
                             athrdb.get("timeout", 60),
+                            jitter_fraction=athrdb.get("jitter_fraction", 0.25),
                         )
                     request_count += 1
                     try:

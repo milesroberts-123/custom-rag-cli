@@ -25,6 +25,9 @@ athrdb:
   enabled: true
   base_url: https://plantrnadb.com/athrdb/Search.php
   min_interval_seconds: 2.0
+  # One-sided jitter: gaps are uniformly min_interval .. min_interval*(1+jitter).
+  # 0 disables jitter, restoring an exact fixed interval.
+  jitter_fraction: 0.25
   max_requests: 5000
   timeout: 60
 
