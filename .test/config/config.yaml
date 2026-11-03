@@ -1,4 +1,6 @@
 samples: config/samples.tsv
+batch_size: 0
+batch_index: 0
 
 ncbi:
   email: test@example.com

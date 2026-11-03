@@ -235,6 +235,20 @@ def _classify(run, species, enabled, cap_reached):
     return None
 
 
+def cap_stale(record, budget):
+    """True when an existing file is a cap stub and request budget remains.
+
+    Cap stubs are the only stubs worth retrying: everything else (disabled,
+    non-Arabidopsis, no GEO record, request failures) is either permanent or
+    would be re-attempted only by deleting the file.
+    """
+    return (
+        isinstance(record, dict)
+        and record.get("athrdb_note") == "request_cap_reached"
+        and budget > 0
+    )
+
+
 def main():
     runs = list(snakemake.params.runs)
     outputs = list(snakemake.output)
@@ -259,7 +273,12 @@ def main():
         output = Path(output_path)
         output.parent.mkdir(parents=True, exist_ok=True)
         if output.exists():
-            continue
+            with open(output) as handle:
+                existing = json.load(handle)
+            budget = 1 if not max_requests else max(0, max_requests - request_count)
+            if not cap_stale(existing, budget):
+                continue
+            # A cap stub with budget remaining falls through and is re-queried.
 
         skip = _classify(
             run,

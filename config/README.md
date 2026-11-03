@@ -139,6 +139,22 @@ Runs are queried once; reruns skip runs whose
 queried. Failed lookups are recorded in `athrdb_note` and never fail the
 workflow.
 
+## Window batching
+
+Two optional top-level keys control batched invocations (also settable via
+`--config batch_size=... batch_index=...`):
+
+| Key | Default | Description |
+|---|---|---|
+| `batch_size` | `0` | Rows per window when batching a large sheet; `0` disables batching. |
+| `batch_index` | `0` | One-based window to process; must be set together with `batch_size`. |
+
+Windows slice the sheet in sheet order and are non-overlapping. The metadata
+fetchers process only the window's accessions and skip files that already
+exist, and `aggregate` rescans the full sheet, so `labels.tsv` accumulates all
+completed runs across windows. See the README's "Batched runs" section for
+the Savio run.sh recipe.
+
 ## `models`
 
 | Key | Default | Description |

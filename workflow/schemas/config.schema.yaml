@@ -5,6 +5,16 @@ properties:
   samples:
     type: string
     description: path to the SRA run sample sheet
+  batch_size:
+    type: integer
+    minimum: 0
+    default: 0
+    description: optional window size for batched invocations; 0 disables batching
+  batch_index:
+    type: integer
+    minimum: 0
+    default: 0
+    description: one-based window index used together with batch_size
   ncbi:
     type: object
     properties:

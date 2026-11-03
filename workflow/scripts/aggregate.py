@@ -1,6 +1,14 @@
-"""Combine per-sample tissue, germplasm, and PECO labels into one table."""
+"""Combine per-sample tissue, germplasm, and PECO labels into one table.
+
+With window batching, this script rescans the full sample sheet every
+invocation and includes every run whose label files are complete on disk, so
+results/labels.tsv and results/labels.excluded.tsv accumulate across windows.
+Runs with an RNA-type record but an incomplete label set are counted and
+reported, never silently dropped; rerun their window to finish them.
+"""
 
 import json
+import sys
 from pathlib import Path
 
 import pandas as pd
@@ -121,54 +129,41 @@ def _review_reasons(tissue, germplasm, exposure, study, summary, rna_type, revie
     return list(dict.fromkeys(reasons))
 
 
+LABEL_KINDS = ("tissue", "germplasm", "exposure", "study_condition")
+
+
+def _run_path(kind, run):
+    """Path to one run's per-kind record under results/."""
+    if kind == "athrdb":
+        return Path("results/metadata/athrdb") / f"{run}.json"
+    return Path("results") / kind / f"{run}.json"
+
+
 def main():
-    samples = pd.read_table(snakemake.params.samples, dtype=str)
-    rna_type_paths = list(snakemake.input.rna_type)
-    tissue_paths = list(snakemake.input.tissue)
-    germplasm_paths = list(snakemake.input.germplasm)
-    exposure_paths = list(snakemake.input.exposure)
-    study_paths = list(snakemake.input.study)
-    athrdb_paths = list(snakemake.input.athrdb)
-    if not (
-        len(samples)
-        == len(rna_type_paths)
-        == len(tissue_paths)
-        == len(germplasm_paths)
-        == len(exposure_paths)
-        == len(study_paths)
-        == len(athrdb_paths)
-    ):
-        raise RuntimeError("sample sheet and label files differ in length")
+    sheet = pd.read_table(snakemake.params.samples, dtype=str)
 
     terms = {
         term["id"]: term
         for term in json.loads((Path(snakemake.input.index) / "terms.json").read_text())
     }
     review = dict(snakemake.params.review)
+
     rows = []
     excluded = []
-    for (
-        sample,
-        rna_type_path,
-        tissue_path,
-        germplasm_path,
-        exposure_path,
-        study_path,
-        athrdb_path,
-    ) in zip(
-        samples.itertuples(),
-        rna_type_paths,
-        tissue_paths,
-        germplasm_paths,
-        exposure_paths,
-        study_paths,
-        athrdb_paths,
-    ):
-        rna_type = json.loads(Path(rna_type_path).read_text())
+    incomplete = []
+    for sample in sheet.itertuples():
+        run = sample.run
+        rna_type_path = _run_path("rna_type", run)
+        if not rna_type_path.exists():
+            # Not yet classified: belongs to a window that has not run.
+            incomplete.append(run)
+            continue
+        rna_type = json.loads(rna_type_path.read_text())
+
         if not rna_type.get("mrna_eligible", False):
             excluded.append(
                 {
-                    "run": sample.run,
+                    "run": run,
                     "biosample": sample.biosample,
                     "bioproject": sample.bioproject,
                     "species": sample.species,
@@ -183,11 +178,19 @@ def main():
             )
             continue
 
-        tissue = json.loads(Path(tissue_path).read_text())
-        germplasm = json.loads(Path(germplasm_path).read_text())
-        exposure = json.loads(Path(exposure_path).read_text())
-        study = json.loads(Path(study_path).read_text())
-        athrdb = json.loads(Path(athrdb_path).read_text())
+        # Eligible runs need their full label set plus the ATHRDB record.
+        paths = {kind: _run_path(kind, run) for kind in LABEL_KINDS}
+        athrdb_path = _run_path("athrdb", run)
+        missing = [kind for kind, path in paths.items() if not path.exists()]
+        if missing or not athrdb_path.exists():
+            incomplete.append(run)
+            continue
+
+        tissue = json.loads(paths["tissue"].read_text())
+        germplasm = json.loads(paths["germplasm"].read_text())
+        exposure = json.loads(paths["exposure"].read_text())
+        study = json.loads(paths["study_condition"].read_text())
+        athrdb = json.loads(athrdb_path.read_text())
         summary_path = Path("results/summary") / f"{sample.bioproject}.json"
         summary = (
             json.loads(summary_path.read_text())
@@ -254,6 +257,15 @@ def main():
                 "review_required": bool(reasons),
                 "review_reasons": ";".join(reasons),
             }
+        )
+
+    if incomplete:
+        print(
+            f"{len(incomplete)} of {len(sheet)} sheet runs are not aggregated "
+            f"yet ({'; '.join(incomplete[:5])}"
+            f"{'...' if len(incomplete) > 5 else ''}); rerun their window to "
+            "finish them.",
+            file=sys.stderr,
         )
 
     frame = pd.DataFrame(rows, columns=LABEL_COLUMNS)

@@ -117,7 +117,13 @@ def main():
     email = snakemake.params.email
     api_key = os.environ.get(snakemake.params.api_key_env or "")
 
-    for prjna, path in zip(prjnas, outputs):
+    # Existing outputs are kept: with window batching, later windows re-declare
+    # projects fetched by earlier windows, and those fetches must be no-ops.
+    pending = [
+        (prjna, path) for prjna, path in zip(prjnas, outputs) if not Path(path).exists()
+    ]
+
+    for prjna, path in pending:
         pmids = _linked_pmids(prjna, email, api_key)
         if pmids:
             record = _paper_record(prjna, pmids[0])

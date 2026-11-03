@@ -21,6 +21,36 @@ validate(SAMPLES, "schemas/samples.schema.yaml")
 if SAMPLES["run"].duplicated().any():
     raise ValueError("config sample sheet contains duplicate run accessions")
 
+# Optional window batching: process the sheet in non-overlapping, ordered
+# slices across invocations. The sheet stays the single source of truth and
+# aggregate rescans it, so labels.tsv accumulates every completed run from
+# all windows. Both keys unset means process the whole sheet.
+BATCH_SIZE = int(config.get("batch_size") or 0)
+BATCH_INDEX = int(config.get("batch_index") or 0)
+if (BATCH_SIZE > 0) != (BATCH_INDEX > 0):
+    raise ValueError("set both batch_size and batch_index for a window, or neither")
+if BATCH_SIZE > 0:
+    total_rows = len(SAMPLES)
+    start = (BATCH_INDEX - 1) * BATCH_SIZE
+    if start >= total_rows:
+        raise ValueError(
+            f"batch_index {BATCH_INDEX} starts past the end of the sheet "
+            f"({total_rows} rows)"
+        )
+    end = min(start + BATCH_SIZE, total_rows)
+    SAMPLES = SAMPLES.iloc[start:end]
+    print(
+        f"Batch window: rows {start + 1}-{end} of {total_rows} "
+        f"({len(SAMPLES)} runs)"
+    )
+    max_requests = int(config.get("athrdb", {}).get("max_requests") or 0)
+    if max_requests and len(SAMPLES) > max_requests:
+        print(
+            f"Warning: window has {len(SAMPLES)} runs but athrdb.max_requests "
+            f"is {max_requests}; runs past the cap get retriable stubs that a "
+            "later window must redo."
+        )
+
 RUNS = SAMPLES["run"].tolist()
 SAMNS = sorted(set(SAMPLES["biosample"].tolist()))
 PRJNAS = sorted(set(SAMPLES["bioproject"].tolist()))

@@ -91,14 +91,18 @@ def main():
     batch_size = int(snakemake.params.batch_size)
     max_retries = int(snakemake.params.max_retries)
 
+    # Existing outputs are kept: with window batching, later windows re-declare
+    # runs fetched by earlier windows, and those fetches must be no-ops.
+    todo = [(run, path) for run, path in zip(runs, outputs) if not Path(path).exists()]
+
     records = {}
-    for start in range(0, len(runs), batch_size):
-        batch = runs[start : start + batch_size]
+    for start in range(0, len(todo), batch_size):
+        batch = todo[start : start + batch_size]
         records.update(
             _parse(
                 fetch_efetch(
                     "sra",
-                    batch,
+                    [run for run, _ in batch],
                     email,
                     api_key,
                     max_retries,
@@ -108,13 +112,13 @@ def main():
             )
         )
 
-    missing = [run for run in runs if run not in records]
+    missing = [run for run, _ in todo if run not in records]
     if missing:
         raise RuntimeError(
             "NCBI returned no SRA record for: " + ", ".join(sorted(missing))
         )
 
-    for run, path in zip(runs, outputs):
+    for run, path in todo:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as handle:
             json.dump(records[run], handle, indent=2, sort_keys=True)

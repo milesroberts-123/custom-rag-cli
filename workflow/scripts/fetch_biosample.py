@@ -44,14 +44,20 @@ def main():
     batch_size = int(snakemake.params.batch_size)
     max_retries = int(snakemake.params.max_retries)
 
+    # Existing outputs are kept: with window batching, later windows re-declare
+    # samples fetched by earlier windows, and those fetches must be no-ops.
+    todo = [
+        (samn, path) for samn, path in zip(samns, outputs) if not Path(path).exists()
+    ]
+
     records = {}
-    for start in range(0, len(samns), batch_size):
-        batch = samns[start : start + batch_size]
+    for start in range(0, len(todo), batch_size):
+        batch = todo[start : start + batch_size]
         records.update(
             _parse(
                 fetch_efetch(
                     "biosample",
-                    batch,
+                    [samn for samn, _ in batch],
                     email,
                     api_key,
                     max_retries,
@@ -61,13 +67,13 @@ def main():
             )
         )
 
-    missing = [samn for samn in samns if samn not in records]
+    missing = [samn for samn, _ in todo if samn not in records]
     if missing:
         raise RuntimeError(
             "NCBI returned no BioSample record for: " + ", ".join(sorted(missing))
         )
 
-    for samn, path in zip(samns, outputs):
+    for samn, path in todo:
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as handle:
             json.dump(records[samn], handle, indent=2, sort_keys=True)

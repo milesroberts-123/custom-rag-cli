@@ -70,6 +70,12 @@ lint/format/test checks in CI.
   `min_interval_seconds`. It is evidence-only and fail-soft: query failures
   become `athrdb_note` stubs, never workflow errors. Do not turn it into
   per-run jobs; that multiplies request pressure.
+- Window batching (`batch_size`/`batch_index`) slices the sheet per
+  invocation; `aggregate` rescans the full sheet and accumulates completed
+  runs, so `labels.tsv` grows across windows. The single-job metadata
+  fetchers skip existing outputs, which makes repeated windows and later
+  windows safe; ATHRDB `request_cap_reached` stubs are retried when budget
+  remains. Keep `batch_size` ≤ `athrdb.max_requests`.
 
 ## Review app
 

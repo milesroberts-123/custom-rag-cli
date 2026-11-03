@@ -46,6 +46,54 @@ SRR41450469	SAMN64520521	PRJNA1552792	Arabidopsis thaliana
 germplasm patterns, model names, and review thresholds. See
 [`config/README.md`](config/README.md) for the full configuration guide.
 
+## Batched runs
+
+Large sheets (e.g. every Arabidopsis run in `SraRunInfo.csv`) do not need to
+be processed in one invocation. Two optional config keys slice the sheet into
+a fixed order of non-overlapping windows:
+
+```bash
+--config batch_size=5000 batch_index=3   # rows 10001-15000 of the sheet
+```
+
+- **One sheet, many invocations.** Keep a single `samples_all.tsv` as
+  `config.samples` (point to it via `--config samples=...`); the window keys
+  select which rows each invocation processes. Rows are taken in sheet order,
+  so windows are deterministic and non-overlapping: window *k* is rows
+  `(k-1)*batch_size + 1` … `k*batch_size`. Unset keys (both 0, the default)
+  process the whole sheet, which is what the `.test` catalog case uses.
+- **`labels.tsv` accumulates.** `aggregate` rescans the entire sheet every
+  invocation and includes every run whose `rna_type`, tissue, germplasm,
+  exposure, study-condition, and ATHRDB records are complete on disk — from
+  this window or any earlier one. Window 3's table therefore contains runs
+  1–15000, not just 10001–15000. Runs classified but not fully labeled are
+  counted and reported at the end of `aggregate`; rerun their window to
+  finish them.
+- **Fetches are window-bounded and repeat-safe.** The single-job metadata
+  fetchers (NCBI, BioProject, paper, ATHRDB) process only the window's
+  accessions and skip files that already exist, so later windows never
+  re-query earlier windows' accessions. ATHRDB `request_cap_reached` stubs
+  are retried automatically in a later window when request budget remains.
+  Keep `batch_size` at or below `athrdb.max_requests` (default 5000) so no
+  window needs a second pass.
+- **On Savio**, batch through the launcher; extra arguments pass straight to
+  Snakemake:
+
+  ```bash
+  bash workflow/savio/run.sh \
+      --config samples=config/samples_all.tsv batch_size=5000 batch_index=1
+  ```
+
+  Each invocation starts its own H200 Ollama server job and cancels it on
+  exit, so a batch sequence is just this command repeated with an increasing
+  `batch_index`. The conda environments and PECO index are built once and
+  reused. Window sizing rule of thumb: ATHRDB pacing (~2–2.5 s per new run)
+  means a 5000-run window spends roughly 3 h in the serial fetch job.
+- Preview a window without running anything with
+  `snakemake -n --config batch_size=5000 batch_index=3` (job counts show the
+  window's runs). `snakemake --batch RULE=K/N` is unrelated to this scheme
+  and not used here; the config-key windows are what bounds the fetch rules.
+
 ## Models
 
 The default stack runs against one local Ollama server:
