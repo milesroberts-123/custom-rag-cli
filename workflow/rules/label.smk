@@ -51,7 +51,7 @@ rule label_exposure:
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
-        index="resources/peco_index",
+        index="results/peco/peco_index",
     output:
         "results/exposure/{run}.json",
     log:
@@ -72,7 +72,7 @@ rule label_study_condition:
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
-        index="resources/peco_index",
+        index="results/peco/peco_index",
     output:
         "results/study_condition/{run}.json",
     log:
@@ -92,9 +92,9 @@ rule aggregate:
         germplasm=expand("results/germplasm/{run}.json", run=RUNS),
         exposure=expand("results/exposure/{run}.json", run=RUNS),
         study=expand("results/study_condition/{run}.json", run=RUNS),
-        athrdb=expand("resources/athrdb/{run}.json", run=RUNS),
+        athrdb=expand("results/metadata/athrdb/{run}.json", run=RUNS),
         summaries=expand("results/summary/{prjna}.json", prjna=PRJNAS),
-        index="resources/peco_index",
+        index="results/peco/peco_index",
     output:
         labels=report(
             "results/labels.tsv",

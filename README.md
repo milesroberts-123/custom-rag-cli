@@ -12,8 +12,8 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
 | `config/` | Workflow configuration, configuration guide, and sample sheet |
 | `review_app/` | Streamlit human-review app and SQLite audit store |
 | `src/` | Original LlamaIndex RAG CLI; see `src/README.md` |
-| `results/` | Generated labels and per-run JSON |
-| `resources/` | Cached NCBI, paper, and PECO resources |
+| `results/` | Everything the workflow produces: fetched metadata caches under `results/metadata/`, the PECO ontology and index under `results/peco/`, per-run classifications, and the final label tables |
+| `resources/` | Empty by default; reserved for manually curated data uploaded by hand (see `resources/README.md`) |
 | `logs/` | Snakemake and Slurm logs |
 
 ## Pipeline
@@ -132,7 +132,7 @@ exposure prompt and `labels.tsv` as `paper_day_length_hours` /
 
 For Arabidopsis thaliana runs the workflow also fetches the human-curated
 annotations from the [PlantRNADB Arabidopsis database](https://plantrnadb.com/athrdb/)
-via the new `fetch_athrdb` rule (`resources/athrdb/{run}.json`): curated
+via the new `fetch_athrdb` rule (`results/metadata/athrdb/{run}.json`): curated
 tissue, genotype, ecotype, project, release date, total reads, and mapped rate,
 keyed by GEO GSM accession.
 
@@ -148,7 +148,7 @@ keyed by GEO GSM accession.
   `athrdb.max_requests` (default 5000) leaves the
   remaining runs with `request_cap_reached` stubs; `athrdb.enabled: false`
   skips the site entirely. Skips are marked in `athrdb_note`, and reruns only
-  query runs without an existing `resources/athrdb/{run}.json`.
+  query runs without an existing `results/metadata/athrdb/{run}.json`.
 - ATHRDB is evidence, never blocking: failed lookups are recorded and the run
   proceeds. Its tissue/genotype/ecotype lines are appended to the tissue and
   germplasm prompts, and `labels.tsv` carries `athrdb_gsm`, `athrdb_tissue`,

@@ -215,6 +215,7 @@ __marimo__/
 !/results/.gitkeep
 /resources/*
 !/resources/.gitkeep
+!/resources/README.md
 /logs/*
 !/logs/.gitkeep
 /.test/results/

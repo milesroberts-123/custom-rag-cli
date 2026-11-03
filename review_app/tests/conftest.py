@@ -160,7 +160,7 @@ def review_root(tmp_path, base_rows, terms):
         lines.append("\t".join(str(row[column]) for column in columns))
     labels.write_text("\n".join(lines) + "\n")
 
-    index = root / "resources" / "peco_index"
+    index = root / "results" / "peco" / "peco_index"
     index.mkdir(parents=True)
     (index / "terms.json").write_text(json.dumps(terms))
 

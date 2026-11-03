@@ -571,20 +571,22 @@ def _render() -> None:
     )
     root = Path(os.environ.get("REVIEW_APP_ROOT", ROOT))
     labels_path = root / "results" / "labels.tsv"
-    index_dir = root / "resources" / "peco_index"
+    peco = root / "results" / "peco"
     config_path = root / "config" / "config.yaml"
     if not labels_path.exists():
         st.error(f"Missing annotation table: {labels_path}")
         st.stop()
-    if not index_dir.exists() or not (index_dir / "terms.json").exists():
-        st.error(f"Missing PECO index: {index_dir}")
+    if not (peco / "peco_index" / "terms.json").exists():
+        st.error(f"Missing PECO index: {peco / 'peco_index'}")
         st.stop()
     if not config_path.exists():
         st.error(f"Missing configuration: {config_path}")
         st.stop()
 
     labels = _cached_labels(str(labels_path), _signature(labels_path))
-    terms = _cached_terms(str(index_dir), _signature(index_dir / "terms.json"))
+    terms = _cached_terms(
+        str(peco / "peco_index"), _signature(peco / "peco_index" / "terms.json")
+    )
     config = _cached_config(str(root), _signature(config_path))
     terms_by_id = {term["id"]: term for term in terms}
 
@@ -738,7 +740,9 @@ def _render() -> None:
                 "from the export."
             )
         if terms_by_id:
-            st.caption(f"PECO index: {len(terms)} terms loaded from {index_dir}")
+            st.caption(
+                f"PECO index: {len(terms)} terms loaded from {peco / 'peco_index'}"
+            )
     finally:
         connection.close()
 

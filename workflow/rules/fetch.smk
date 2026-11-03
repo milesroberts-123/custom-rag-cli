@@ -2,7 +2,7 @@ rule fetch_biosamples:
     input:
         samples=config["samples"],
     output:
-        expand("resources/biosample/{samn}.json", samn=SAMNS),
+        expand("results/metadata/biosample/{samn}.json", samn=SAMNS),
     log:
         "logs/fetch_biosamples.log",
     conda:
@@ -21,7 +21,7 @@ rule fetch_sra_metadata:
     input:
         samples=config["samples"],
     output:
-        expand("resources/sra/{run}.json", run=RUNS),
+        expand("results/metadata/sra/{run}.json", run=RUNS),
     log:
         "logs/fetch_sra_metadata.log",
     conda:
@@ -39,9 +39,9 @@ rule fetch_sra_metadata:
 rule fetch_athrdb:
     input:
         samples=config["samples"],
-        sra=expand("resources/sra/{run}.json", run=RUNS),
+        sra=expand("results/metadata/sra/{run}.json", run=RUNS),
     output:
-        expand("resources/athrdb/{run}.json", run=RUNS),
+        expand("results/metadata/athrdb/{run}.json", run=RUNS),
     log:
         "logs/fetch_athrdb.log",
     conda:
@@ -60,7 +60,7 @@ rule fetch_papers:
     input:
         samples=config["samples"],
     output:
-        expand("resources/paper/{prjna}.json", prjna=PRJNAS),
+        expand("results/metadata/paper/{prjna}.json", prjna=PRJNAS),
     log:
         "logs/fetch_papers.log",
     conda:
@@ -77,7 +77,7 @@ rule fetch_bioprojects:
     input:
         samples=config["samples"],
     output:
-        expand("resources/bioproject/{prjna}.json", prjna=PRJNAS),
+        expand("results/metadata/bioproject/{prjna}.json", prjna=PRJNAS),
     log:
         "logs/fetch_bioprojects.log",
     conda:

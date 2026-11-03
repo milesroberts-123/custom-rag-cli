@@ -135,7 +135,7 @@ in the review app and carried into `labels.tsv`.
 | `timeout` | `60` | Per-request HTTP timeout, seconds. |
 
 Runs are queried once; reruns skip runs whose
-`resources/athrdb/{run}.json` already exists. Non-Arabidopsis runs are never
+`results/metadata/athrdb/{run}.json` already exists. Non-Arabidopsis runs are never
 queried. Failed lookups are recorded in `athrdb_note` and never fail the
 workflow.
 

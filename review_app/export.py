@@ -170,7 +170,7 @@ def export_reviewed(
             db.latest_edits(connection),
             db.review_status(connection),
             db.latest_notes(connection),
-            loaders.load_terms(root / "resources" / "peco_index"),
+            loaders.load_terms(root / "results" / "peco" / "peco_index"),
         )
     finally:
         connection.close()
@@ -191,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
         "--root",
         type=Path,
         default=loaders.REPO_ROOT,
-        help="repository root containing results/ and resources/",
+        help="repository root containing results/",
     )
     parser.add_argument("--db", type=Path, default=None, help="review SQLite database")
     parser.add_argument("--csv", type=Path, default=None, help="reviewed CSV path")

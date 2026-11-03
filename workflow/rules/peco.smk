@@ -1,6 +1,6 @@
 rule fetch_peco:
     output:
-        "resources/peco.owl",
+        "results/peco/peco.owl",
     log:
         "logs/fetch_peco.log",
     conda:
@@ -13,9 +13,9 @@ rule fetch_peco:
 
 rule build_peco_index:
     input:
-        "resources/peco.owl",
+        "results/peco/peco.owl",
     output:
-        directory("resources/peco_index"),
+        directory("results/peco/peco_index"),
     log:
         "logs/build_peco_index.log",
     conda:

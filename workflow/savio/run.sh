@@ -4,13 +4,13 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
-mkdir -p .snakemake/slurm_logs resources
+mkdir -p .snakemake/slurm_logs results resources
 
 export PATH="/global/scratch/users/$USER/envs/sra-peco/bin:$PATH"
 export HF_HOME="${HF_HOME:-/global/scratch/users/$USER/hf-cache}"
 mkdir -p "$HF_HOME"
 
-SERVER_FILE="$ROOT/resources/ollama_server.txt"
+SERVER_FILE="$ROOT/results/ollama_server.txt"
 rm -f "$SERVER_FILE"
 
 JOB_ID="$(sbatch --parsable workflow/savio/ollama-server.sbatch "$SERVER_FILE")"

@@ -82,23 +82,24 @@ def paper_url(paper: dict | None) -> str | None:
 
 
 def load_run_bundle(root: Path, sample: dict | Any) -> dict[str, Any]:
-    """Load all resources and model outputs for one sample row."""
+    """Load all fetched metadata and model outputs for one sample row."""
     root = Path(root)
     run = sample["run"]
     samn = sample["biosample"]
     prjna = sample["bioproject"]
-    resources = root / "resources"
     results = root / "results"
     return {
-        "sra": load_json(resources / "sra" / f"{run}.json") or {},
-        "biosample": load_json(resources / "biosample" / f"{samn}.json") or {},
-        "bioproject": load_json(resources / "bioproject" / f"{prjna}.json") or {},
-        "paper": load_json(resources / "paper" / f"{prjna}.json") or {},
+        "sra": load_json(results / "metadata" / "sra" / f"{run}.json") or {},
+        "biosample": load_json(results / "metadata" / "biosample" / f"{samn}.json")
+        or {},
+        "bioproject": load_json(results / "metadata" / "bioproject" / f"{prjna}.json")
+        or {},
+        "paper": load_json(results / "metadata" / "paper" / f"{prjna}.json") or {},
         "summary": load_json(results / "summary" / f"{prjna}.json") or {},
         "tissue": load_json(results / "tissue" / f"{run}.json") or {},
         "germplasm": load_json(results / "germplasm" / f"{run}.json") or {},
         "exposure": load_json(results / "exposure" / f"{run}.json") or {},
         "study": load_json(results / "study_condition" / f"{run}.json") or {},
         "rna_type": load_json(results / "rna_type" / f"{run}.json") or {},
-        "athrdb": load_json(resources / "athrdb" / f"{run}.json") or {},
+        "athrdb": load_json(results / "metadata" / "athrdb" / f"{run}.json") or {},
     }

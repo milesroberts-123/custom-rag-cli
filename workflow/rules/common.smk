@@ -18,12 +18,12 @@ def species_of(run):
 
 def biosample_file(wildcards):
     """Input function: normalized BioSample JSON for a run."""
-    return f"resources/biosample/{samn_of(wildcards.run)}.json"
+    return f"results/metadata/biosample/{samn_of(wildcards.run)}.json"
 
 
 def sra_file(wildcards):
     """Input function: normalized SRA metadata JSON for a run."""
-    return f"resources/sra/{wildcards.run}.json"
+    return f"results/metadata/sra/{wildcards.run}.json"
 
 
 def rna_type_file(wildcards):
@@ -33,7 +33,7 @@ def rna_type_file(wildcards):
 
 def athrdb_file(wildcards):
     """Input function: curated ATHRDB annotations for a run."""
-    return f"resources/athrdb/{wildcards.run}.json"
+    return f"results/metadata/athrdb/{wildcards.run}.json"
 
 
 def summary_file(wildcards):

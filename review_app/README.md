@@ -23,12 +23,12 @@ results/germplasm/{run}.json
 results/exposure/{run}.json
 results/study_condition/{run}.json
 results/summary/{prjna}.json
-resources/sra/{run}.json
-resources/biosample/{samn}.json
-resources/bioproject/{prjna}.json
-resources/paper/{prjna}.json
-resources/athrdb/{run}.json
-resources/peco_index/terms.json
+results/metadata/sra/{run}.json
+results/metadata/biosample/{samn}.json
+results/metadata/bioproject/{prjna}.json
+results/metadata/paper/{prjna}.json
+results/metadata/athrdb/{run}.json
+results/peco/peco_index/terms.json
 ```
 
 Missing metadata files are shown as empty sections. The PECO index is required

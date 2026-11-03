@@ -1,6 +1,6 @@
 rule summarize_paper:
     input:
-        paper="resources/paper/{prjna}.json",
+        paper="results/metadata/paper/{prjna}.json",
     output:
         "results/summary/{prjna}.json",
     log:

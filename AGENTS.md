@@ -36,7 +36,12 @@ lint/format/test checks in CI.
 ## Snakemake workflow
 
 - The workflow is at the repository root; run commands from the repo root
-  (`config/`, `workflow/`, `results/`, `resources/`).
+  (`config/`, `workflow/`, `results/`).
+- Directory convention: `config/` holds curated inputs (config, sample sheet),
+  `resources/` is reserved for manually curated uploads and stays empty, and
+  everything the workflow fetches or generates lives under `results/`
+  (`results/metadata/` for API fetches, `results/peco/` for the ontology and
+  index). Do not route machine fetches back into `resources/`.
 - Before committing changes under `workflow/`, `config/`, or `.test/`, run
   `snakefmt --check workflow/` and `snakemake --lint`. For Python sources run
   `ruff check` and `ruff format --check`. Pre-commit hooks do this locally and
@@ -69,8 +74,8 @@ lint/format/test checks in CI.
 ## Review app
 
 - `review_app/` is a Streamlit app backed by SQLite at
-  `results/review/review.db`. It reads `results/labels.tsv` and `resources/`;
-  it must never modify `labels.tsv`.
+  `results/review/review.db`. It reads `results/labels.tsv` and the fetched
+  caches under `results/metadata/`; it must never modify `labels.tsv`.
 - Start it with `bash review_app/run.sh`, or
   `streamlit run review_app/app.py`. Export with
   `python -m review_app.export`.
