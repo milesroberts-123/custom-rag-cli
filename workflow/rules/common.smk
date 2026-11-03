@@ -31,6 +31,11 @@ def rna_type_file(wildcards):
     return f"results/rna_type/{wildcards.run}.json"
 
 
+def athrdb_file(wildcards):
+    """Input function: curated ATHRDB annotations for a run."""
+    return f"resources/athrdb/{wildcards.run}.json"
+
+
 def summary_file(wildcards):
     """Input function: per-project paper summary for a run."""
     return f"results/summary/{prjna_of(wildcards.run)}.json"

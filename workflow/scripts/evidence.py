@@ -30,6 +30,12 @@ def sra_lines(sra, max_abstract=800):
     return lines
 
 
+def _fmt_number(value):
+    """Format a numeric paper field without a trailing .0."""
+    value = float(value)
+    return str(int(value)) if value.is_integer() else str(value)
+
+
 def paper_lines(summary):
     """Return paper condition lines when a summarized paper is available."""
     if not summary.get("has_paper"):
@@ -40,6 +46,12 @@ def paper_lines(summary):
         value = conditions.get(key)
         if value:
             lines.append(f"paper_{key}: {value}")
+    day_length = conditions.get("day_length_hours")
+    if isinstance(day_length, (int, float)):
+        lines.append(f"paper_day_length_hours: {_fmt_number(day_length)}")
+    temperature = conditions.get("growth_temperature_c")
+    if isinstance(temperature, (int, float)):
+        lines.append(f"paper_growth_temperature_c: {_fmt_number(temperature)}")
     if conditions.get("evidence"):
         lines.append(f"paper_evidence: {conditions['evidence'][:500]}")
     return lines

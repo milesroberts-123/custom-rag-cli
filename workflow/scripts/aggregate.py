@@ -36,6 +36,12 @@ LABEL_COLUMNS = [
     "growth_system_labels",
     "has_paper",
     "paper_low_confidence",
+    "paper_day_length_hours",
+    "paper_growth_temperature_c",
+    "athrdb_gsm",
+    "athrdb_tissue",
+    "athrdb_genotype",
+    "athrdb_ecotype",
     "review_required",
     "review_reasons",
 ]
@@ -122,6 +128,7 @@ def main():
     germplasm_paths = list(snakemake.input.germplasm)
     exposure_paths = list(snakemake.input.exposure)
     study_paths = list(snakemake.input.study)
+    athrdb_paths = list(snakemake.input.athrdb)
     if not (
         len(samples)
         == len(rna_type_paths)
@@ -129,6 +136,7 @@ def main():
         == len(germplasm_paths)
         == len(exposure_paths)
         == len(study_paths)
+        == len(athrdb_paths)
     ):
         raise RuntimeError("sample sheet and label files differ in length")
 
@@ -146,6 +154,7 @@ def main():
         germplasm_path,
         exposure_path,
         study_path,
+        athrdb_path,
     ) in zip(
         samples.itertuples(),
         rna_type_paths,
@@ -153,6 +162,7 @@ def main():
         germplasm_paths,
         exposure_paths,
         study_paths,
+        athrdb_paths,
     ):
         rna_type = json.loads(Path(rna_type_path).read_text())
         if not rna_type.get("mrna_eligible", False):
@@ -177,12 +187,14 @@ def main():
         germplasm = json.loads(Path(germplasm_path).read_text())
         exposure = json.loads(Path(exposure_path).read_text())
         study = json.loads(Path(study_path).read_text())
+        athrdb = json.loads(Path(athrdb_path).read_text())
         summary_path = Path("results/summary") / f"{sample.bioproject}.json"
         summary = (
             json.loads(summary_path.read_text())
             if summary_path.exists()
             else {"has_paper": False, "low_confidence": True}
         )
+        conditions = summary.get("conditions") or {}
 
         growth_terms = [
             term
@@ -233,6 +245,12 @@ def main():
                 ),
                 "has_paper": summary.get("has_paper", False),
                 "paper_low_confidence": summary.get("low_confidence", True),
+                "paper_day_length_hours": conditions.get("day_length_hours"),
+                "paper_growth_temperature_c": conditions.get("growth_temperature_c"),
+                "athrdb_gsm": athrdb.get("gsm"),
+                "athrdb_tissue": athrdb.get("athrdb_tissue"),
+                "athrdb_genotype": athrdb.get("athrdb_genotype"),
+                "athrdb_ecotype": athrdb.get("athrdb_ecotype"),
                 "review_required": bool(reasons),
                 "review_reasons": ";".join(reasons),
             }

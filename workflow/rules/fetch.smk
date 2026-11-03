@@ -36,6 +36,26 @@ rule fetch_sra_metadata:
         "../scripts/fetch_sra_metadata.py"
 
 
+rule fetch_athrdb:
+    input:
+        samples=config["samples"],
+        sra=expand("resources/sra/{run}.json", run=RUNS),
+    output:
+        expand("resources/athrdb/{run}.json", run=RUNS),
+    log:
+        "logs/fetch_athrdb.log",
+    conda:
+        "../envs/ncbi.yaml"
+    params:
+        runs=RUNS,
+        email=config["ncbi"]["email"],
+        api_key_env=config["ncbi"]["api_key_env"],
+        max_retries=config["ncbi"]["max_retries"],
+        athrdb=config["athrdb"],
+    script:
+        "../scripts/fetch_athrdb.py"
+
+
 rule fetch_papers:
     input:
         samples=config["samples"],

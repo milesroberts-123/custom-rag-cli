@@ -27,6 +27,7 @@ resources/sra/{run}.json
 resources/biosample/{samn}.json
 resources/bioproject/{prjna}.json
 resources/paper/{prjna}.json
+resources/athrdb/{run}.json
 resources/peco_index/terms.json
 ```
 

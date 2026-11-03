@@ -113,6 +113,31 @@ SRA attributes. It does not use the paper. Other RNA types are written to
 | `flag_missing_paper` | `true` | Flag projects without a linked paper. |
 | `flag_low_confidence_paper` | `true` | Flag abstract-only or low-confidence paper summaries. |
 
+## `paper`
+
+| Key | Default | Description |
+|---|---|---|
+| `max_chars` | `12000` | Character budget for the paper excerpt sent to the summary model. |
+
+The paper summary also extracts `day_length_hours` and `growth_temperature_c`
+when the paper reports them; `null` means not reported. These values are shown
+in the review app and carried into `labels.tsv`.
+
+## `athrdb`
+
+| Key | Default | Description |
+|---|---|---|
+| `enabled` | `true` | Query PlantRNADB for curated Arabidopsis annotations. |
+| `base_url` | `https://plantrnadb.com/athrdb/Search.php` | Search endpoint. |
+| `min_interval_seconds` | `2.0` | Minimum wall time between ATHRDB requests. The fetch is a single serial job, so this caps the request rate regardless of run count. |
+| `max_requests` | `5000` | Hard cap per fetch job; remaining runs get `request_cap_reached` stubs. `0` disables the cap. |
+| `timeout` | `60` | Per-request HTTP timeout, seconds. |
+
+Runs are queried once; reruns skip runs whose
+`resources/athrdb/{run}.json` already exists. Non-Arabidopsis runs are never
+queried. Failed lookups are recorded in `athrdb_note` and never fail the
+workflow.
+
 ## `models`
 
 | Key | Default | Description |

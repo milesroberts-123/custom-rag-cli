@@ -18,6 +18,16 @@ peco:
 paper:
   max_chars: 12000
 
+athrdb:
+  # Curated Arabidopsis annotations from PlantRNADB (GEO GSM-keyed).
+  # One serial Snakemake job queries the site, so the effective request rate
+  # is at most one request per min_interval_seconds regardless of run count.
+  enabled: true
+  base_url: https://plantrnadb.com/athrdb/Search.php
+  min_interval_seconds: 2.0
+  max_requests: 5000
+  timeout: 60
+
 tissue:
   # The paper's six categories, with flower and fruit separated.
   categories:

@@ -43,5 +43,6 @@ rule all:
         expand("results/exposure/{run}.json", run=RUNS),
         expand("results/study_condition/{run}.json", run=RUNS),
         expand("resources/bioproject/{prjna}.json", prjna=PRJNAS),
+        expand("resources/athrdb/{run}.json", run=RUNS),
         "results/labels.tsv",
         "results/labels.excluded.tsv",

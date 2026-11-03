@@ -98,10 +98,30 @@ def _paper_card(bundle: dict) -> None:
         )
         if details:
             st.caption(details)
+        conditions = (bundle.get("summary") or {}).get("conditions") or {}
+        reported = []
+        day_length = conditions.get("day_length_hours")
+        if isinstance(day_length, (int, float)):
+            reported.append(f"day length: {_fmt_hours(day_length)} h light")
+        temperature = conditions.get("growth_temperature_c")
+        if isinstance(temperature, (int, float)):
+            reported.append(f"temperature: {_fmt_number(temperature)} °C")
+        if reported:
+            st.caption("Reported: " + " · ".join(reported))
         if url:
             st.link_button("Open paper", url)
         if paper.get("abstract"):
             st.markdown(paper["abstract"])
+
+
+def _fmt_hours(value):
+    value = float(value)
+    return str(int(value)) if value.is_integer() else str(value)
+
+
+def _fmt_number(value):
+    value = float(value)
+    return str(int(value)) if value.is_integer() else str(value)
 
 
 def _project_panel(project: str, bundle: dict, sample: pd.Series) -> None:
@@ -139,6 +159,7 @@ def _metadata_tabs(
             "SRA metadata",
             "BioSample",
             "BioProject",
+            "AthRDB",
             "Model evidence",
             "History",
         ]
@@ -203,6 +224,32 @@ def _metadata_tabs(
             )
             st.json(bioproject.get("project_type") or {})
     with tabs[4]:
+        athrdb = bundle["athrdb"] or {}
+        if not athrdb.get("athrdb_hit"):
+            note = athrdb.get("athrdb_note") or "no ATHRDB record"
+            st.info(f"No curated PlantRNADB record ({note}).")
+        else:
+            gsm = athrdb.get("gsm")
+            _key_value_table(
+                [
+                    ("GSM accession", gsm),
+                    ("Tissue", athrdb.get("athrdb_tissue")),
+                    ("Genotype", athrdb.get("athrdb_genotype")),
+                    ("Ecotype", athrdb.get("athrdb_ecotype")),
+                    ("Project", athrdb.get("athrdb_project")),
+                    ("Release date", athrdb.get("athrdb_release_date")),
+                    ("Title", athrdb.get("athrdb_title")),
+                    ("Total reads", athrdb.get("athrdb_total_reads")),
+                    ("Mapped rate", athrdb.get("athrdb_mapped_rate")),
+                    ("Queried at", athrdb.get("queried_at")),
+                ]
+            )
+            if gsm:
+                st.link_button(
+                    "Open GEO record",
+                    f"https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc={gsm}",
+                )
+    with tabs[5]:
         st.markdown("**RNA type**")
         st.json(bundle["rna_type"])
         st.markdown("**Tissue**")
@@ -216,7 +263,7 @@ def _metadata_tabs(
         if bundle["summary"]:
             st.markdown("**Paper condition summary**")
             st.json(bundle["summary"])
-    with tabs[5]:
+    with tabs[6]:
         if status.get("event_type"):
             st.caption(
                 f"Review status: {status['event_type']} by "

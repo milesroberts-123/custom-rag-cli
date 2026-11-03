@@ -22,6 +22,10 @@ JSON object with exactly these keys:
 - "growth_conditions": string or null
 - "tissue_sampled": string or null
 - "stress": string or null
+- "day_length_hours": hours of light per day as a number; for example 16 for a
+  16 h light / 8 h dark cycle, 24 for constant light; null when not reported
+- "growth_temperature_c": growth temperature in Celsius as a number; use the
+  midpoint of a stated range; null when not reported
 - "evidence": short direct quote(s) supporting the values, string
 
 Do not invent details that are not in the excerpt. Use null when unknown.
@@ -84,6 +88,18 @@ def _jats_excerpt(xml_text, max_chars):
     return "\n\n".join(chunks)
 
 
+def _as_number(value):
+    """Coerce a prompt value to a float, or None when it is not numeric."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    try:
+        return float(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+
+
 def _normalize(parsed):
     conditions = {}
     for key in PAPER_KEYS:
@@ -91,6 +107,8 @@ def _normalize(parsed):
         conditions[key] = (
             value.strip() if isinstance(value, str) and value.strip() else None
         )
+    conditions["day_length_hours"] = _as_number(parsed.get("day_length_hours"))
+    conditions["growth_temperature_c"] = _as_number(parsed.get("growth_temperature_c"))
     evidence = parsed.get("evidence")
     conditions["evidence"] = (
         evidence.strip() if isinstance(evidence, str) and evidence.strip() else ""

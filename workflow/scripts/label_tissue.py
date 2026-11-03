@@ -111,12 +111,16 @@ def main():
         sra = json.load(handle)
     with open(snakemake.input.summary) as handle:
         summary = json.load(handle)
+    with open(snakemake.input.athrdb) as handle:
+        athrdb = json.load(handle)
 
     categories = list(snakemake.params.categories)
     keywords = dict(snakemake.params.keywords)
     values = evidence_lines(
         biosample, sra, summary, list(snakemake.params.attribute_keys)
     )
+    if athrdb.get("athrdb_hit") and athrdb.get("athrdb_tissue"):
+        values.append(f"athrdb_tissue: {athrdb['athrdb_tissue']}")
 
     confidence = None
     probabilities = None

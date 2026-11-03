@@ -122,7 +122,36 @@ without inventing a third PECO branch.
 The exposure prompt uses the paper's annotation conventions: control is
 long-day (≥12 h light, not constant), 18–26 °C, no stress or nutrient
 limitation; high temperature is ≥27 °C; cold is ≤17 °C; short day is <12 h
-light; recovery samples are labeled by the recovery condition.
+light; recovery samples are labeled by the recovery condition. When a paper
+reports them, `summarize_paper` also extracts `day_length_hours` and
+`growth_temperature_c` (midpoint of a stated range); these flow into the
+exposure prompt and `labels.tsv` as `paper_day_length_hours` /
+`paper_growth_temperature_c`.
+
+## PlantRNADB (ATHRDB) annotations
+
+For Arabidopsis thaliana runs the workflow also fetches the human-curated
+annotations from the [PlantRNADB Arabidopsis database](https://plantrnadb.com/athrdb/)
+via the new `fetch_athrdb` rule (`resources/athrdb/{run}.json`): curated
+tissue, genotype, ecotype, project, release date, total reads, and mapped rate,
+keyed by GEO GSM accession.
+
+- Run → SRX lookup comes from the SRA metadata; SRX → GSM is resolved with an
+  NCBI `db=gds` esearch/esummary pair. Runs without a GEO record get a
+  `no_geo_record` stub.
+- **Rate limiting**: ATHRDB queries run in a single serial Snakemake job, so
+  the request rate never exceeds one request per
+  `athrdb.min_interval_seconds` (default 2 s) regardless of how many jobs the
+  workflow submits. A hard cap `athrdb.max_requests` (default 5000) leaves the
+  remaining runs with `request_cap_reached` stubs; `athrdb.enabled: false`
+  skips the site entirely. Skips are marked in `athrdb_note`, and reruns only
+  query runs without an existing `resources/athrdb/{run}.json`.
+- ATHRDB is evidence, never blocking: failed lookups are recorded and the run
+  proceeds. Its tissue/genotype/ecotype lines are appended to the tissue and
+  germplasm prompts, and `labels.tsv` carries `athrdb_gsm`, `athrdb_tissue`,
+  `athrdb_genotype`, `athrdb_ecotype` for cross-checking during review.
+- The review app shows the record (with a GEO link) in the "AthRDB" tab and
+  reported day length / temperature on the paper card.
 
 If a condition exists but no candidate fits, the exposure layer returns
 `other: true` with a free-text `suggested_label` for review. `unknown`/`OTHER`

@@ -4,6 +4,7 @@ rule label_tissue:
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
+        athrdb=athrdb_file,
     output:
         "results/tissue/{run}.json",
     log:
@@ -26,6 +27,7 @@ rule label_germplasm:
         biosample=biosample_file,
         sra=sra_file,
         summary=summary_file,
+        athrdb=athrdb_file,
     output:
         "results/germplasm/{run}.json",
     log:
@@ -90,6 +92,7 @@ rule aggregate:
         germplasm=expand("results/germplasm/{run}.json", run=RUNS),
         exposure=expand("results/exposure/{run}.json", run=RUNS),
         study=expand("results/study_condition/{run}.json", run=RUNS),
+        athrdb=expand("resources/athrdb/{run}.json", run=RUNS),
         summaries=expand("results/summary/{prjna}.json", prjna=PRJNAS),
         index="resources/peco_index",
     output:

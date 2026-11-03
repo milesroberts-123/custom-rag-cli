@@ -59,6 +59,10 @@ lint/format/test checks in CI.
   stub for excluded runs, so keep their `rna_type` input wired.
 - `fetch_bioprojects` supplies the BioProject metadata shown in the review app.
   Do not remove it from `rule all` without checking the app's fallback.
+- `fetch_athrdb` is a single serial job with an ATHRDB rate limit
+  (`athrdb.min_interval_seconds` / `athrdb.max_requests`). It is evidence-only
+  and fail-soft: query failures become `athrdb_note` stubs, never workflow
+  errors. Do not turn it into per-run jobs; that multiplies request pressure.
 
 ## Review app
 

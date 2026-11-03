@@ -18,6 +18,13 @@ peco:
 paper:
   max_chars: 1000
 
+athrdb:
+  enabled: true
+  base_url: https://plantrnadb.com/athrdb/Search.php
+  min_interval_seconds: 0.0
+  max_requests: 3
+  timeout: 60
+
 tissue:
   categories:
     - leaf

@@ -100,4 +100,5 @@ def load_run_bundle(root: Path, sample: dict | Any) -> dict[str, Any]:
         "exposure": load_json(results / "exposure" / f"{run}.json") or {},
         "study": load_json(results / "study_condition" / f"{run}.json") or {},
         "rna_type": load_json(results / "rna_type" / f"{run}.json") or {},
+        "athrdb": load_json(resources / "athrdb" / f"{run}.json") or {},
     }

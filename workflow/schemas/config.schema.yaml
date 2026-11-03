@@ -55,6 +55,29 @@ properties:
         default: 12000
     required:
       - max_chars
+  athrdb:
+    type: object
+    properties:
+      enabled:
+        type: boolean
+        default: true
+      base_url:
+        type: string
+      min_interval_seconds:
+        type: number
+        minimum: 0
+      max_requests:
+        type: integer
+        minimum: 0
+      timeout:
+        type: integer
+        minimum: 1
+    required:
+      - enabled
+      - base_url
+      - min_interval_seconds
+      - max_requests
+      - timeout
   tissue:
     type: object
     properties:
@@ -300,6 +323,7 @@ required:
   - ncbi
   - peco
   - paper
+  - athrdb
   - tissue
   - germplasm
   - rna_type

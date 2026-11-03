@@ -82,8 +82,33 @@ def test_aggregate_filters_non_eligible_runs(tmp_path, monkeypatch):
 
     _write(
         results / "summary" / "PRJNA1.json",
-        {"has_paper": False, "low_confidence": True},
+        {
+            "has_paper": True,
+            "low_confidence": False,
+            "conditions": {
+                "day_length_hours": 16,
+                "growth_temperature_c": 22,
+            },
+        },
     )
+    athrdb_paths = []
+    for run, gsm, tissue, genotype in (
+        ("SRR1", "GSM9001", "leaf", "wild type"),
+        ("SRR2", None, None, None),
+    ):
+        path = results / "athrdb" / f"{run}.json"
+        _write(
+            path,
+            {
+                "run": run,
+                "gsm": gsm,
+                "athrdb_hit": bool(gsm),
+                "athrdb_tissue": tissue,
+                "athrdb_genotype": genotype,
+                "athrdb_ecotype": "Col-0" if gsm else None,
+            },
+        )
+        athrdb_paths.append(str(path))
     index = tmp_path / "index"
     _write(index / "terms.json", [])
 
@@ -101,6 +126,7 @@ def test_aggregate_filters_non_eligible_runs(tmp_path, monkeypatch):
                 study=[
                     str(results / "study_condition" / f"SRR{i}.json") for i in (1, 2)
                 ],
+                athrdb=athrdb_paths,
                 index=str(index),
             ),
             output=SimpleNamespace(
@@ -128,5 +154,10 @@ def test_aggregate_filters_non_eligible_runs(tmp_path, monkeypatch):
     assert labels["run"].tolist() == ["SRR1"]
     assert labels["rna_type"].tolist() == ["ribo_depleted_total_rna"]
     assert labels["mrna_eligible"].tolist() == [True]
+    assert labels["paper_day_length_hours"].tolist() == [16]
+    assert labels["paper_growth_temperature_c"].tolist() == [22]
+    assert labels["athrdb_gsm"].tolist() == ["GSM9001"]
+    assert labels["athrdb_tissue"].tolist() == ["leaf"]
+    assert labels["athrdb_genotype"].tolist() == ["wild type"]
     assert excluded["run"].tolist() == ["SRR2"]
     assert excluded["exclusion_reason"].tolist() == ["rna_type_total_rna_not_accepted"]
