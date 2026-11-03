@@ -9,3 +9,60 @@ output: html_notebook
 read.table("/global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli/resources")
 ```
 
+```{r sra-metadata-merge, eval=FALSE}
+# Merge the SRA metadata downloaded to resources/ on Savio.
+# SraRunInfo.csv: one row per Run (SRR). sra_result.csv: one row per Experiment
+# (SRX). Enrich each run with its experiment-level metadata; keep every run,
+# even when its experiment is missing from sra_result.csv.
+# eval=FALSE for now; set to TRUE to run.
+
+repo_root <- "/global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli"
+sra_dir <- file.path(repo_root, "resources")
+
+runinfo <- read.csv(file.path(sra_dir, "SraRunInfo.csv"))
+result <- read.csv(file.path(sra_dir, "sra_result.csv"))
+
+# Every run should be unique; sra_result.csv can repeat an experiment row,
+# so deduplicate defensively and report how many were dropped.
+stopifnot(!anyDuplicated(runinfo$Run))
+dropped <- sum(duplicated(result$Experiment.Accession))
+result <- result[!duplicated(result$Experiment.Accession), ]
+
+# Columns kept from sra_result.csv. read.csv turns "Total Size, Mb" into
+# "Total.Size..Mb"; Library.Strategy / Library.Selection also exist in the run
+# table, so the per-run values win and are not re-imported with a prefix.
+experiments <- result[, c(
+  "Experiment.Accession", "Experiment.Title", "Organism.Name", "Instrument",
+  "Submitter", "Study.Accession", "Study.Title", "Sample.Accession",
+  "Sample.Title", "Total.Size..Mb", "Total.RUNs", "Total.Spots", "Total.Bases",
+  "Library.Name", "Library.Source"
+)]
+names(experiments) <- c(
+  "exp_accession", "exp_title", "exp_organism", "exp_instrument",
+  "exp_submitter", "exp_study", "exp_study_title", "exp_sample",
+  "exp_sample_title", "exp_size_mb", "exp_runs", "exp_spots", "exp_bases",
+  "exp_library_name", "exp_library_source"
+)
+
+sra <- merge(
+  runinfo,
+  experiments,
+  by.x = "Experiment",
+  by.y = "exp_accession",
+  all.x = TRUE
+)
+
+nrow(runinfo)    # runs
+nrow(experiments)  # unique experiments
+dropped          # duplicate experiment rows dropped
+nrow(sra)        # merged rows, one per run
+sum(is.na(sra$exp_title))  # runs with no experiment metadata available
+
+dir.create(file.path(repo_root, "results"), showWarnings = FALSE)
+write.csv(
+  sra,
+  file.path(repo_root, "results", "sra_merged.csv"),
+  row.names = FALSE
+)
+```
+
