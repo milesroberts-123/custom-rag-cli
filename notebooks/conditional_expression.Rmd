@@ -5,8 +5,8 @@ output: html_notebook
 
 
 ```{r}
-
-read.table("/global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli/resources")
+rm(list = ls())
+library(tidyverse)
 ```
 
 ```{r sra-metadata-merge, eval=FALSE}
@@ -24,8 +24,11 @@ result <- read.csv(file.path(sra_dir, "sra_result.csv"))
 
 # Every run should be unique; sra_result.csv can repeat an experiment row,
 # so deduplicate defensively and report how many were dropped.
-stopifnot(!anyDuplicated(runinfo$Run))
-dropped <- sum(duplicated(result$Experiment.Accession))
+#stopifnot(!anyDuplicated(runinfo$Run))
+runs_dropped <- sum(duplicated(runinfo$Run))
+runinfo <- runinfo[!duplicated(runinfo$Run),]
+
+exps_dropped <- sum(duplicated(result$Experiment.Accession))
 result <- result[!duplicated(result$Experiment.Accession), ]
 
 # Columns kept from sra_result.csv. read.csv turns "Total Size, Mb" into
@@ -54,15 +57,29 @@ sra <- merge(
 
 nrow(runinfo)    # runs
 nrow(experiments)  # unique experiments
-dropped          # duplicate experiment rows dropped
+runs_dropped          # duplicate runs rows dropped
+exps_dropped  # duplicate experiment rows dropped
 nrow(sra)        # merged rows, one per run
 sum(is.na(sra$exp_title))  # runs with no experiment metadata available
 
-dir.create(file.path(repo_root, "results"), showWarnings = FALSE)
-write.csv(
-  sra,
-  file.path(repo_root, "results", "sra_merged.csv"),
-  row.names = FALSE
+# format table for workflow
+snk_table <- sra |> select(Run, BioSample, BioProject, exp_organism) |> rename(run = Run, biosample = BioSample, bioproject = BioProject, species = exp_organism)
+
+rm(sra, result, runinfo, experiments); gc()
+
+# check for any empty values
+# should be FALSE
+any(is.na(snk_table))
+
+snk_table <- snk_table |> filter(bioproject != "")
+
+dir.create(file.path(repo_root, "config"), showWarnings = FALSE)
+write.table(
+  snk_table,
+  file.path(repo_root, "config", "samples_all.tsv"),
+  row.names = FALSE,
+  quote = F,
+  sep = "\t"
 )
 ```
 
