@@ -1,0 +1,11 @@
+---
+title: "Conditional Expression 2.0 - Repeating my PhD with LLMs"
+output: html_notebook
+---
+
+
+```{r}
+
+read.table("/global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli/resources")
+```
+
