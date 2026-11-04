@@ -112,6 +112,27 @@ Notes:
   filesystem. Multiple reviewers should tunnel to the same login-node
   process; if you ever need independent app hosts, move to Postgres.
 
+### Troubleshooting the tunnel
+
+- **`ssh: connect to host savio port 22: No route to host`** — the command is
+  running on the wrong machine or network. It must run in a local terminal
+  on your laptop, *not* inside an SSH session to Savio: login nodes have no
+  route back to the gateway's public IPs, so the tunnel can never be
+  established from there. If you're off-campus, connect the BRC VPN first —
+  with it down you get exactly this error. Check with
+  `ssh savio hostname`, then rerun the tunnel command.
+- **The tunnel connects but the browser can't open the page** — verify the
+  app is healthy on the tunnel's node. In the tunnel's terminal window run
+  `curl -s -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8501`; `200`
+  means the app is up and the tunnel is correct. If that reports `000`, the
+  app failed to start — read `.snakemake/slurm_logs/review-app.log` on the
+  login node and rerun the tunnel command.
+- **The app won't start (500 or blank page)** — the workflow outputs may be
+  missing or incomplete. The app reads `results/labels.tsv`, the per-run
+  label JSONs, `results/metadata/`, and
+  `results/peco/peco_index/terms.json`; run the workflow first (or at least
+  `build_peco_index`) so they exist.
+
 The app reviews only the mRNA-eligible runs in `results/labels.tsv`. Runs
 excluded by the RNA-type filter are listed in `results/labels.excluded.tsv` and
 are not shown in the review queue.
