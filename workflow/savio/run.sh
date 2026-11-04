@@ -25,6 +25,7 @@ done
 if [[ ! -f "$SERVER_FILE" ]]; then
     echo "The Ollama server did not become ready within an hour." >&2
     echo "Inspect .snakemake/slurm_logs/ollama-${JOB_ID}.out" >&2
+    echo "(a common cause: qwen3.8 served on CPU, not GPU - see that log)" >&2
     scancel "$JOB_ID" || true
     exit 1
 fi

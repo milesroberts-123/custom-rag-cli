@@ -17,6 +17,7 @@ export OLLAMA_LLM_LIBRARY=vulkan
 export OLLAMA_HOST=0.0.0.0:11434
 export OLLAMA_KEEP_ALIVE=2h
 export OLLAMA_MAX_LOADED_MODELS=2
+export OLLAMA_NUM_PARALLEL=4
 
 SERVER_FILE="${1:?usage: ollama-server.sbatch <server-file>}"
 mkdir -p "$(dirname "$SERVER_FILE")" .snakemake/slurm_logs
@@ -27,7 +28,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-if ! pgrep -u "$USER" -x ollama >/dev/null; then
+# Start a server only if nothing is already listening on this node. Each GPU
+# job gets the whole node, so any existing listener here would be ours or a
+# leftover from a crashed job; probing the port avoids reusing a stale
+# CPU-only server from a login node.
+if ! curl -sf http://127.0.0.1:11434/api/tags >/dev/null 2>&1; then
     ollama serve > ".snakemake/slurm_logs/ollama-serve-${SLURM_JOB_ID}.log" 2>&1 &
 fi
 
@@ -42,6 +47,18 @@ fi
 
 # Warm the generation model so the first real request is not a cold load.
 ollama run qwen3.8 "Reply with OK" >/dev/null
+
+# The generation model must be served from the GPU. If Vulkan discovery broke
+# (a known risk with the Ollama 0.40.11 upgrade), ollama silently falls back
+# to CPU and every label job times out. Fail loudly instead of wasting hours.
+if ! ollama ps | grep -E '^qwen3\.8' | grep -q 'GPU'; then
+    echo "qwen3.8 is loaded on CPU, not GPU:" >&2
+    ollama ps >&2
+    echo "Remediation: restore the known-good 0.34.4 ollama binary and" >&2
+    echo "re-run; or debug Vulkan discovery with 'ollama ps' after restarting" >&2
+    echo "the server manually (OLLAMA_LLM_LIBRARY=vulkan)." >&2
+    exit 1
+fi
 
 echo "Ollama is serving on $(hostname):11434"
 ollama ps
