@@ -36,12 +36,31 @@ for editing; if it is absent, run the workflow index rule first.
 
 ## Setup
 
+Any Python environment manager works — the app is pure Python with no
+compiled extensions. Two options:
+
 ```bash
+# venv
 cd /path/to/custom-rag-cli
 python3 -m venv .venv
 . .venv/bin/activate
 pip install -r review_app/requirements.txt
 ```
+
+```bash
+# conda (all three runtime packages exist on conda-forge; pip is optional)
+mamba create -y -n review-app -c conda-forge \
+    python=3.12 streamlit=1.66.1 pandas=2.2.3 pyyaml=6.0.2
+mamba activate review-app
+
+# or keep the requirements file as the single source of pins:
+# mamba create -y -n review-app python=3.12
+# mamba activate review-app
+# pip install -r review_app/requirements.txt
+```
+
+`review_app/run.sh` only needs `streamlit` on `PATH`, so no script changes
+are required for either method.
 
 ## Run
 
@@ -51,15 +70,45 @@ bash review_app/run.sh
 
 Open <http://127.0.0.1:8501>.
 
-On Savio, run one Streamlit process on a single login node and connect through
-an SSH tunnel:
+### Running on Savio
+
+Run one Streamlit process on a single login node inside `tmux` (so it
+survives disconnects), then connect from your laptop through an SSH tunnel:
 
 ```bash
-ssh -L 8501:localhost:8501 <savio-login-host>
+# on Savio (login node)
+ssh savio
+module load python
+mamba activate review-app
+tmux
+cd /global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli
+bash review_app/run.sh
+# detach with Ctrl-b d — the app keeps running
 ```
 
-Then open <http://127.0.0.1:8501> locally. Do not run multiple app processes
-against the same SQLite file on a shared filesystem.
+```bash
+# on your laptop, in a separate terminal
+ssh -L 8501:localhost:8501 savio
+# then open http://localhost:8501
+```
+
+The `savio` SSH alias already carries the BRC cert config, so the tunnel
+needs no extra setup and can be re-established at any time; the app and the
+review database persist in the tmux session.
+
+The login node is the right host: the app needs no GPU or Ollama, `/global/
+scratch` is mounted there so all workflow outputs are readable, and compute
+nodes are needlessly awkward to reach (double-hop tunnels) and vanish when
+the job ends.
+
+The app binds to `127.0.0.1` by design:
+
+- Do **not** set `HOST=0.0.0.0` to skip the tunnel; the review database
+  should not be network-visible, and BRC's network won't make it reliably
+  reachable anyway.
+- Do not run multiple app processes against the same SQLite file on a shared
+  filesystem. Multiple reviewers should tunnel to the same login-node
+  process; if you ever need independent app hosts, move to Postgres.
 
 The app reviews only the mRNA-eligible runs in `results/labels.tsv`. Runs
 excluded by the RNA-type filter are listed in `results/labels.excluded.tsv` and
