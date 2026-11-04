@@ -3,8 +3,6 @@ rule fetch_biosamples:
         samples=config["samples"],
     output:
         expand("results/metadata/biosample/{samn}.json", samn=SAMNS),
-    log:
-        "logs/fetch_biosamples.log",
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -22,8 +20,6 @@ rule fetch_sra_metadata:
         samples=config["samples"],
     output:
         expand("results/metadata/sra/{run}.json", run=RUNS),
-    log:
-        "logs/fetch_sra_metadata.log",
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -42,8 +38,6 @@ rule fetch_athrdb:
         sra=expand("results/metadata/sra/{run}.json", run=RUNS),
     output:
         expand("results/metadata/athrdb/{run}.json", run=RUNS),
-    log:
-        "logs/fetch_athrdb.log",
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -61,8 +55,6 @@ rule fetch_papers:
         samples=config["samples"],
     output:
         expand("results/metadata/paper/{prjna}.json", prjna=PRJNAS),
-    log:
-        "logs/fetch_papers.log",
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -78,8 +70,6 @@ rule fetch_bioprojects:
         samples=config["samples"],
     output:
         expand("results/metadata/bioproject/{prjna}.json", prjna=PRJNAS),
-    log:
-        "logs/fetch_bioprojects.log",
     conda:
         "../envs/ncbi.yaml"
     params:

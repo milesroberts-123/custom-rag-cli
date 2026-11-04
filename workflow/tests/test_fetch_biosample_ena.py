@@ -73,47 +73,53 @@ def test_ncbi_records_carry_source(tmp_path, monkeypatch):
     assert calls == [("SAMN1",)]
 
 
-def test_ena_fallback(tmp_path, monkeypatch):
+def test_ena_fallback(tmp_path, monkeypatch, caplog):
+    import logging
+
     import fetch_biosample
 
-    ncbi_calls = []
+    with caplog.at_level(logging.INFO, logger="fetch_biosample"):
+        ncbi_calls = []
 
-    def fake_efetch(db, ids, *args, **kwargs):
-        ncbi_calls.append(tuple(ids))
-        # NCBI has nothing for these: mirror miss.
-        return b"<BioSampleSet></BioSampleSet>"
+        def fake_efetch(db, ids, *args, **kwargs):
+            ncbi_calls.append(tuple(ids))
+            # NCBI has nothing for these: mirror miss.
+            return b"<BioSampleSet></BioSampleSet>"
 
-    monkeypatch.setattr(fetch_biosample, "fetch_efetch", fake_efetch)
-    ena_calls = []
+        monkeypatch.setattr(fetch_biosample, "fetch_efetch", fake_efetch)
+        ena_calls = []
 
-    def fake_ena(accession):
-        ena_calls.append(accession)
-        return fetch_biosample.parse_ena_sample(ENA_FIXTURE.read_bytes())
+        def fake_ena(accession):
+            ena_calls.append(accession)
+            return fetch_biosample.parse_ena_sample(ENA_FIXTURE.read_bytes())
 
-    monkeypatch.setattr(fetch_biosample, "_ena_record", fake_ena)
-    output = tmp_path / "results/metadata/biosample/SAMEA112139654.json"
-    monkeypatch.setattr(
-        fetch_biosample,
-        "snakemake",
-        SimpleNamespace(
-            output=[str(output)],
-            params=SimpleNamespace(
-                samns=["SAMEA112139654"],
-                email="x@example.com",
-                api_key_env="",
-                batch_size=10,
-                max_retries=1,
+        monkeypatch.setattr(fetch_biosample, "_ena_record", fake_ena)
+        output = tmp_path / "results/metadata/biosample/SAMEA112139654.json"
+        monkeypatch.setattr(
+            fetch_biosample,
+            "snakemake",
+            SimpleNamespace(
+                output=[str(output)],
+                params=SimpleNamespace(
+                    samns=["SAMEA112139654"],
+                    email="x@example.com",
+                    api_key_env="",
+                    batch_size=10,
+                    max_retries=1,
+                ),
             ),
-        ),
-        raising=False,
-    )
-    fetch_biosample.main()
+            raising=False,
+        )
+        fetch_biosample.main()
 
     record = json.loads(output.read_text())
     assert record["fetch_source"] == "ena"
     assert record["attributes"]["cultivar"] == "Columbia"
     assert ncbi_calls == [("SAMEA112139654",)]
     assert ena_calls == ["SAMEA112139654"]
+    messages = [entry.message for entry in caplog.records]
+    assert any("falling back to ENA" in message for message in messages)
+    assert any("fetched SAMEA112139654 from ENA" in message for message in messages)
 
 
 def test_both_sources_missing_raises(tmp_path, monkeypatch):

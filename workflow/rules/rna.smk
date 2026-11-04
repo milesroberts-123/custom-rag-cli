@@ -4,8 +4,6 @@ rule classify_rna_type:
         sra=sra_file,
     output:
         "results/rna_type/{run}.json",
-    log:
-        "logs/rna_type_{run}.log",
     conda:
         "../envs/llm.yaml"
     params:

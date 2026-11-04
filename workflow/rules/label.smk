@@ -7,8 +7,6 @@ rule label_tissue:
         athrdb=athrdb_file,
     output:
         "results/tissue/{run}.json",
-    log:
-        "logs/tissue_{run}.log",
     conda:
         "../envs/llm.yaml"
     params:
@@ -30,8 +28,6 @@ rule label_germplasm:
         athrdb=athrdb_file,
     output:
         "results/germplasm/{run}.json",
-    log:
-        "logs/germplasm_{run}.log",
     conda:
         "../envs/llm.yaml"
     params:
@@ -54,8 +50,6 @@ rule label_exposure:
         index="results/peco/peco_index",
     output:
         "results/exposure/{run}.json",
-    log:
-        "logs/exposure_{run}.log",
     conda:
         "../envs/peco_llm.yaml"
     params:
@@ -75,8 +69,6 @@ rule label_study_condition:
         index="results/peco/peco_index",
     output:
         "results/study_condition/{run}.json",
-    log:
-        "logs/study_condition_{run}.log",
     conda:
         "../envs/llm.yaml"
     params:
@@ -102,8 +94,6 @@ rule aggregate:
             category="Labels",
         ),
         excluded="results/labels.excluded.tsv",
-    log:
-        "logs/aggregate.log",
     conda:
         "../envs/aggregate.yaml"
     params:

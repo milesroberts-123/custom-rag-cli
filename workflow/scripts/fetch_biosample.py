@@ -97,6 +97,11 @@ def _ena_record(accession):
     return None
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("fetch_biosample")
+
+
 def main():
     samns = list(snakemake.params.samns)
     outputs = list(snakemake.output)
@@ -113,10 +118,21 @@ def main():
     todo = [
         (samn, path) for samn, path in zip(samns, outputs) if not Path(path).exists()
     ]
+    LOGGER.info(
+        "BioSample fetch: %d accessions (%d already cached)",
+        len(samns),
+        len(samns) - len(todo),
+    )
 
     records = {}
-    for start in range(0, len(todo), batch_size):
-        batch = todo[start : start + batch_size]
+    batches = [todo[i : i + batch_size] for i in range(0, len(todo), batch_size)]
+    for index, batch in enumerate(batches, start=1):
+        LOGGER.info(
+            "NCBI efetch db=biosample batch %d/%d (%d accessions)",
+            index,
+            len(batches),
+            len(batch),
+        )
         records.update(
             _parse(
                 fetch_efetch(
@@ -130,17 +146,31 @@ def main():
                 )
             )
         )
+        LOGGER.info(
+            "batch %d/%d parsed (%d records total)",
+            index,
+            len(batches),
+            len(records),
+        )
 
     # ENA-origin accessions are usually absent from NCBI's BioSample mirror;
     # fall back to ENA's XML API for anything NCBI does not have.
     missing = [samn for samn, _ in todo if samn not in records]
+    if missing:
+        LOGGER.warning(
+            "%d accessions missing from NCBI; falling back to ENA", len(missing)
+        )
     for samn in missing:
         record = _ena_record(samn)
         if record is not None:
+            LOGGER.info("fetched %s from ENA", samn)
             records[samn] = record
+        else:
+            LOGGER.warning("ENA returned no record for %s", samn)
 
     unresolved = sorted(samn for samn, _ in todo if samn not in records)
     if unresolved:
+        LOGGER.error("no BioSample record for %d accessions", len(unresolved))
         raise RuntimeError(
             "No BioSample record found in NCBI or ENA for: " + ", ".join(unresolved)
         )
@@ -150,6 +180,11 @@ def main():
         with open(path, "w") as handle:
             json.dump(records[samn], handle, indent=2, sort_keys=True)
             handle.write("\n")
+    counts = {}
+    for record in records.values():
+        source = record.get("fetch_source", "ncbi")
+        counts[source] = counts.get(source, 0) + 1
+    LOGGER.info("wrote %d BioSample records (sources: %s)", len(todo), counts)
 
 
 if __name__ == "__main__":

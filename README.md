@@ -14,7 +14,7 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
 | `src/` | Original LlamaIndex RAG CLI; see `src/README.md` |
 | `results/` | Everything the workflow produces: fetched metadata caches under `results/metadata/`, the PECO ontology and index under `results/peco/`, per-run classifications, and the final label tables |
 | `resources/` | Empty by default; reserved for manually curated data uploaded by hand (see `resources/README.md`) |
-| `logs/` | Snakemake and Slurm logs |
+| `logs/` | Legacy Slurm job logs; new jobs write to `.snakemake/slurm_logs/` |
 
 ## Pipeline
 
@@ -387,9 +387,11 @@ pip install pre-commit
 pre-commit install
 ```
 
-The hooks run `snakefmt --check` and `snakemake --lint` on `workflow/` and
-`config/` changes, and `ruff check` / `ruff format --check` on the Python
-sources. The `.github/workflows/sra-peco-ci.yml` workflow repeats these checks
+The hooks run `snakefmt --check` and `scripts/lint-snakemake.sh` (the
+`snakemake --lint` wrapper that drops the advisory-only "no log directive"
+finding; the Slurm executor already persists job output in
+`.snakemake/slurm_logs/`) on `workflow/` and `config/` changes, and
+`ruff check` / `ruff format --check` on the Python sources. The `.github/workflows/sra-peco-ci.yml` workflow repeats these checks
 on push and pull request, plus a `snakemake -n` dry run and the review-app
 tests.
 

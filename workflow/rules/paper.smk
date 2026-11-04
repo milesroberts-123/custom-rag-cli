@@ -3,8 +3,6 @@ rule summarize_paper:
         paper="results/metadata/paper/{prjna}.json",
     output:
         "results/summary/{prjna}.json",
-    log:
-        "logs/summarize_{prjna}.log",
     conda:
         "../envs/llm.yaml"
     params:

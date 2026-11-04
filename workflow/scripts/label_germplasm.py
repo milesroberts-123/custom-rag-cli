@@ -184,6 +184,11 @@ def athrdb_lines(record):
     return lines
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("label_germplasm")
+
+
 def main():
     rna_type = load_rna_type(snakemake.input.rna_type)
     if not rna_type.get("mrna_eligible"):
@@ -270,6 +275,13 @@ def main():
         "attribute_values": values,
     }
 
+    LOGGER.info(
+        "%s: germplasm=%s (source=%s, confidence=%s)",
+        snakemake.wildcards.run,
+        category,
+        source,
+        confidence,
+    )
     output = Path(snakemake.output[0])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

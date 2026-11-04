@@ -116,6 +116,11 @@ def _parse(xml_bytes, prjna=None):
     }
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("fetch_bioproject")
+
+
 def main():
     prjnas = list(snakemake.params.prjnas)
     outputs = list(snakemake.output)
@@ -131,6 +136,12 @@ def main():
     pending = [
         (prjna, path) for prjna, path in zip(prjnas, outputs) if not Path(path).exists()
     ]
+
+    LOGGER.info(
+        "BioProject fetch: %d projects (%d already cached)",
+        len(prjnas),
+        len(prjnas) - len(pending),
+    )
 
     for index, (prjna, path) in enumerate(pending):
         if index:
@@ -151,9 +162,14 @@ def main():
             record = _parse(xml_bytes, prjna)
             record["uid"] = uid
 
+        LOGGER.info("%s: %s", prjna, record["status"])
         output = Path(path)
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+
+    LOGGER.info(
+        "done: %d fetched, %d already cached", len(pending), len(prjnas) - len(pending)
+    )
 
 
 if __name__ == "__main__":

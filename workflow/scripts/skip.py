@@ -3,6 +3,10 @@
 import json
 from pathlib import Path
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("skip")
+
 
 def load_rna_type(path):
     """Read the RNA type record for a run."""
@@ -23,3 +27,8 @@ def write_skip(run, rna_type, output):
     output = Path(output)
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    LOGGER.info(
+        "%s: label stub written (not mRNA-eligible; rna_type=%s)",
+        run,
+        rna_type.get("rna_type"),
+    )

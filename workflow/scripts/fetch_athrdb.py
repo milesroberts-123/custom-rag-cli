@@ -249,6 +249,11 @@ def cap_stale(record, budget):
     )
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("fetch_athrdb")
+
+
 def main():
     runs = list(snakemake.params.runs)
     outputs = list(snakemake.output)
@@ -267,6 +272,7 @@ def main():
     max_requests = int(athrdb.get("max_requests") or 0)
 
     request_count = 0
+    cached = stubbed = cap_stubbed = 0
     client = None
     sra_by_run = {Path(path).stem: path for path in snakemake.input.sra}
     for run, output_path in zip(runs, outputs):
@@ -277,6 +283,7 @@ def main():
                 existing = json.load(handle)
             budget = 1 if not max_requests else max(0, max_requests - request_count)
             if not cap_stale(existing, budget):
+                cached += 1
                 continue
             # A cap stub with budget remaining falls through and is re-queried.
 
@@ -288,6 +295,7 @@ def main():
         )
         if skip is not None:
             record = skip
+            LOGGER.info("%s: stub (%s)", run, record["athrdb_note"])
         else:
             with open(sra_by_run[run]) as handle:
                 sra = json.load(handle)
@@ -296,6 +304,9 @@ def main():
                 gsm = find_gsm(srx, email, api_key, max_retries) if srx else None
                 if gsm is None:
                     record = stub(run, note="no_geo_record")
+                    LOGGER.info(
+                        "%s: stub (no_geo_record; srx=%s)", run, srx or "(none)"
+                    )
                 else:
                     if client is None:
                         client = AthrdbClient(
@@ -314,6 +325,7 @@ def main():
                         parsed = stub(run, gsm=gsm, queried=True, note="request_failed")
                     if isinstance(parsed, dict):
                         record = parsed
+                        LOGGER.info("%s: %s (request %d)", run, gsm, request_count)
                     else:
                         record = stub(
                             run, gsm=gsm, queried=True, note="no_athrdb_record"
@@ -325,6 +337,19 @@ def main():
         record["run"] = run
         record["queried_at"] = _now()
         output.write_text(json.dumps(record, indent=2, sort_keys=True) + "\n")
+        note = record.get("athrdb_note")
+        if note == "request_cap_reached":
+            cap_stubbed += 1
+        elif note:
+            stubbed += 1
+
+    LOGGER.info(
+        "ATHRDB fetch done: %d queried, %d cached, %d stubbed, %d cap-stubbed",
+        request_count,
+        cached,
+        stubbed,
+        cap_stubbed,
+    )
 
 
 if __name__ == "__main__":

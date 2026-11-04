@@ -43,7 +43,9 @@ lint/format/test checks in CI.
   (`results/metadata/` for API fetches, `results/peco/` for the ontology and
   index). Do not route machine fetches back into `resources/`.
 - Before committing changes under `workflow/`, `config/`, or `.test/`, run
-  `snakefmt --check workflow/` and `snakemake --lint`. For Python sources run
+  `snakefmt --check workflow/` and `scripts/lint-snakemake.sh` (the lint
+  wrapper that ignores the log-directive advisory; see below). For Python
+  sources run
   `ruff check` and `ruff format --check`. Pre-commit hooks do this locally and
   `.github/workflows/sra-peco-ci.yml` repeats it on push/PR.
 - The Snakemake workflow catalog only discovers `Snakefile` or
@@ -51,7 +53,10 @@ lint/format/test checks in CI.
   under a subdirectory without updating the catalog layout.
 - Models are served locally by Ollama on the Savio H200 node (`qwen3.8`,
   `tev1:4b`), not by Ollama Cloud. `workflow/savio/run.sh` starts the shared
-  model-server job and points workers at it.
+  model-server job and points workers at it. Slurm job logs live only in
+  `.snakemake/slurm_logs/` (the plugin's default); do not add `log:` directives
+  back to rules, and write script progress with the shared `script_logging`
+  logger so messages land in those job logs.
 - Tissue, germplasm, and the two PECO layers use `OTHER`/`unknown` sentinels
   plus review flags in `results/labels.tsv`; see `README.md` and
   `config/README.md` for thresholds and setup.

@@ -321,6 +321,11 @@ def _chat(client, model, model_params, lines):
     return UNKNOWN, None, 0.0, ""
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("classify_rna_type")
+
+
 def main():
     with open(snakemake.input.biosample) as handle:
         biosample = json.load(handle)
@@ -411,6 +416,14 @@ def main():
         "attribute_values": lines,
     }
 
+    LOGGER.info(
+        "%s: rna_type=%s%s (source=%s, confidence=%s)",
+        snakemake.wildcards.run,
+        category,
+        f":{subtype}" if subtype else "",
+        source,
+        confidence,
+    )
     output = Path(snakemake.output[0])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

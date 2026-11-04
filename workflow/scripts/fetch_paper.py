@@ -108,6 +108,11 @@ def _paper_record(prjna, pmid):
     return record
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("fetch_paper")
+
+
 def main():
     prjnas = list(snakemake.params.prjnas)
     outputs = list(snakemake.output)
@@ -123,6 +128,12 @@ def main():
         (prjna, path) for prjna, path in zip(prjnas, outputs) if not Path(path).exists()
     ]
 
+    LOGGER.info(
+        "paper fetch: %d projects (%d already cached)",
+        len(prjnas),
+        len(prjnas) - len(pending),
+    )
+
     for prjna, path in pending:
         pmids = _linked_pmids(prjna, email, api_key)
         if pmids:
@@ -131,10 +142,19 @@ def main():
         else:
             record = {"prjna": prjna, "pmid": None, "pmids": [], "status": "none"}
 
+        if record["status"] == "none" and not pmids:
+            LOGGER.info("%s: no linked publication", prjna)
+        else:
+            LOGGER.info("%s: %s via PMID %s", prjna, record["status"], record["pmid"])
+
         Path(path).parent.mkdir(parents=True, exist_ok=True)
         with open(path, "w") as handle:
             json.dump(record, handle, indent=2, sort_keys=True)
             handle.write("\n")
+
+    LOGGER.info(
+        "done: %d fetched, %d already cached", len(pending), len(prjnas) - len(pending)
+    )
 
 
 if __name__ == "__main__":

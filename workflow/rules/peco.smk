@@ -1,8 +1,6 @@
 rule fetch_peco:
     output:
         "results/peco/peco.owl",
-    log:
-        "logs/fetch_peco.log",
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -16,8 +14,6 @@ rule build_peco_index:
         "results/peco/peco.owl",
     output:
         directory("results/peco/peco_index"),
-    log:
-        "logs/build_peco_index.log",
     conda:
         "../envs/peco.yaml"
     params:

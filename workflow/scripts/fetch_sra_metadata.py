@@ -80,6 +80,11 @@ def _parse(xml_bytes):
     return records
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("fetch_sra_metadata")
+
+
 def main():
     runs = list(snakemake.params.runs)
     outputs = list(snakemake.output)
@@ -94,10 +99,21 @@ def main():
     # Existing outputs are kept: with window batching, later windows re-declare
     # runs fetched by earlier windows, and those fetches must be no-ops.
     todo = [(run, path) for run, path in zip(runs, outputs) if not Path(path).exists()]
+    LOGGER.info(
+        "SRA metadata fetch: %d runs (%d already cached)",
+        len(runs),
+        len(runs) - len(todo),
+    )
 
     records = {}
-    for start in range(0, len(todo), batch_size):
-        batch = todo[start : start + batch_size]
+    batches = [todo[i : i + batch_size] for i in range(0, len(todo), batch_size)]
+    for index, batch in enumerate(batches, start=1):
+        LOGGER.info(
+            "NCBI efetch db=sra batch %d/%d (%d accessions)",
+            index,
+            len(batches),
+            len(batch),
+        )
         records.update(
             _parse(
                 fetch_efetch(
@@ -111,6 +127,12 @@ def main():
                 )
             )
         )
+        LOGGER.info(
+            "batch %d/%d parsed (%d records total)",
+            index,
+            len(batches),
+            len(records),
+        )
 
     missing = [run for run, _ in todo if run not in records]
     if missing:
@@ -123,6 +145,8 @@ def main():
         with open(path, "w") as handle:
             json.dump(records[run], handle, indent=2, sort_keys=True)
             handle.write("\n")
+
+    LOGGER.info("wrote %d of %d SRA records", len(records), len(runs))
 
 
 if __name__ == "__main__":

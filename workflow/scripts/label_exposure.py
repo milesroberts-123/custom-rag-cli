@@ -141,6 +141,11 @@ def _validate(parsed, candidate_ids, term_by_id):
     return cleaned, no_condition, other, suggested
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("label_exposure")
+
+
 def main():
     rna_type = load_rna_type(snakemake.input.rna_type)
     if not rna_type.get("mrna_eligible"):
@@ -224,6 +229,14 @@ def main():
         "query": query_text,
     }
 
+    LOGGER.info(
+        "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s)",
+        snakemake.wildcards.run,
+        len(selected),
+        no_condition,
+        other,
+        max_score,
+    )
     output = Path(snakemake.output[0])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")

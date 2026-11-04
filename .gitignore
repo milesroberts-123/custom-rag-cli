@@ -220,8 +220,5 @@ __marimo__/
 /resources/*
 !/resources/.gitkeep
 !/resources/README.md
-/logs/*
-!/logs/.gitkeep
 /.test/results/
 /.test/resources/
-/.test/logs/

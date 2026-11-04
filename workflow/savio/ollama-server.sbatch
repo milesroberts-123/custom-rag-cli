@@ -19,7 +19,7 @@ export OLLAMA_KEEP_ALIVE=2h
 export OLLAMA_MAX_LOADED_MODELS=2
 
 SERVER_FILE="${1:?usage: ollama-server.sbatch <server-file>}"
-mkdir -p "$(dirname "$SERVER_FILE")" logs
+mkdir -p "$(dirname "$SERVER_FILE")" .snakemake/slurm_logs
 
 cleanup() {
     rm -f "$SERVER_FILE"
@@ -28,7 +28,7 @@ cleanup() {
 trap cleanup EXIT
 
 if ! pgrep -u "$USER" -x ollama >/dev/null; then
-    ollama serve > "logs/ollama-serve-${SLURM_JOB_ID}.log" 2>&1 &
+    ollama serve > ".snakemake/slurm_logs/ollama-serve-${SLURM_JOB_ID}.log" 2>&1 &
 fi
 
 until curl -sf http://127.0.0.1:11434/api/tags >/dev/null; do

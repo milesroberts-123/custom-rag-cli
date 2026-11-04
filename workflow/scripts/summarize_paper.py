@@ -133,6 +133,11 @@ def _summarize(client, model, model_params, prjna, excerpt):
     raise RuntimeError(f"could not summarize {prjna}: {last_error}")
 
 
+from script_logging import setup as _setup
+
+LOGGER = _setup("summarize_paper")
+
+
 def main():
     with open(snakemake.input.paper) as handle:
         paper = json.load(handle)
@@ -142,6 +147,7 @@ def main():
     prjna = paper["prjna"]
 
     if paper.get("status") == "none":
+        LOGGER.info("%s: no linked publication; writing stub", prjna)
         result = {
             "prjna": prjna,
             "has_paper": False,
@@ -161,6 +167,12 @@ def main():
             excerpt = (paper.get("abstract") or "")[:max_chars]
             low_confidence = True
 
+        LOGGER.info(
+            "%s: summarizing %d characters (%s)",
+            prjna,
+            len(excerpt),
+            paper.get("status"),
+        )
         client = make_client(snakemake.params.server_url, snakemake.params.api_key)
         conditions = _summarize(
             client,
@@ -180,6 +192,7 @@ def main():
     with open(output, "w") as handle:
         json.dump(result, handle, indent=2, sort_keys=True)
         handle.write("\n")
+    LOGGER.info("%s: done (low_confidence=%s)", prjna, result["low_confidence"])
 
 
 if __name__ == "__main__":
