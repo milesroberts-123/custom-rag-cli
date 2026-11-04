@@ -18,6 +18,9 @@ germplasm types, and terms from the [Plant Experimental Conditions Ontology
 
 ## Pipeline
 
+A methods-style narrative of the full workflow is in
+[`methods.md`](methods.md).
+
 1. Fetch BioProject, BioSample, and SRA metadata from NCBI.
 2. Resolve each BioProject to a PubMed ID. Projects without a linked
    publication are skipped.
