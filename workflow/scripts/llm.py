@@ -1,4 +1,16 @@
-"""Client helpers for Ollama's chat and decision endpoints."""
+"""Client helpers for Ollama's chat and decision endpoints.
+
+Chat requests use Ollama's native /api/chat endpoint rather than the
+OpenAI-compatible /v1 surface. Two reasons:
+
+- ``think: false`` is a top-level field of the native API and reliably
+  disables reasoning traces on thinking-capable models; the OpenAI-compatible
+  endpoint ignores it. Labels are short JSON answers, and reasoning
+  chains-of-thought are pure latency.
+- Native ``options`` gives per-request ``num_predict``/``num_ctx`` control.
+
+The decision endpoint (/v1/systemone) is unchanged.
+"""
 
 import json
 import os
@@ -6,7 +18,8 @@ import re
 import time
 
 import requests
-from openai import APIConnectionError, APITimeoutError, OpenAI
+
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
 
 
 def _server(server_url):
@@ -15,16 +28,6 @@ def _server(server_url):
 
 def _key(api_key):
     return os.environ.get("OLLAMA_API_KEY") or api_key
-
-
-def make_client(server_url, api_key, timeout=600):
-    """Build an OpenAI-compatible client for the Ollama server."""
-    return OpenAI(
-        base_url=f"{_server(server_url)}/v1",
-        api_key=_key(api_key),
-        timeout=timeout,
-        max_retries=0,
-    )
 
 
 def systemone(
@@ -53,30 +56,58 @@ def _extract_json(text):
     return fenced.group(1) if fenced else text
 
 
-def chat_json(client, model, messages, model_params=None, max_tokens=4096, retries=3):
+def chat_json(
+    server_url,
+    api_key,
+    model,
+    messages,
+    model_params=None,
+    max_tokens=1024,
+    retries=3,
+):
     """Send a chat request that must return a JSON object.
 
-    Transient connection failures (a busy shared Ollama server queueing
-    requests, a timeout under load) are retried with short backoff; JSON
+    Thinking is disabled, JSON mode is forced, and generation is capped at
+    ``max_tokens``. ``model_params`` maps to Ollama runtime ``options``
+    (e.g. ``temperature``). Transient failures (connection loss, timeouts,
+    HTTP 429/5xx from a busy shared server) are retried with backoff; JSON
     validation failures still propagate so callers can run their own
     correction loops.
     """
-    kwargs = {
+    options = dict(model_params or {})
+    options["num_predict"] = max_tokens
+    payload = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_tokens,
-        "response_format": {"type": "json_object"},
+        "stream": False,
+        "format": "json",
+        "think": False,
+        "options": options,
     }
-    kwargs.update(model_params or {})
+    headers = {"Authorization": f"Bearer {_key(api_key)}"}
+    url = f"{_server(server_url)}/api/chat"
+
     delay = 5.0
     for attempt in range(retries):
         try:
-            response = client.chat.completions.create(**kwargs)
-            break
-        except (APIConnectionError, APITimeoutError):
+            response = requests.post(
+                url, json=payload, headers=headers, timeout=(30, 600)
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             if attempt == retries - 1:
                 raise
             time.sleep(delay)
             delay *= 2
-    content = response.choices[0].message.content or ""
+            continue
+        if response.status_code in RETRYABLE_STATUS and attempt < retries - 1:
+            time.sleep(delay)
+            delay *= 2
+            continue
+        response.raise_for_status()
+        break
+
+    body = response.json()
+    if "error" in body:
+        raise RuntimeError(f"Ollama error: {body['error']}")
+    content = body.get("message", {}).get("content") or ""
     return json.loads(_extract_json(content))

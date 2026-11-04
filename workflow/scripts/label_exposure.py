@@ -8,7 +8,7 @@ import numpy as np
 from sentence_transformers import SentenceTransformer
 
 from evidence import evidence_lines
-from llm import chat_json, make_client
+from llm import chat_json
 from skip import load_rna_type, write_skip
 
 SYSTEM = (
@@ -182,7 +182,6 @@ def main():
         {"role": "user", "content": prompt},
     ]
 
-    client = make_client(snakemake.params.server_url, snakemake.params.api_key)
     last_error = None
     selected = None
     no_condition = False
@@ -192,7 +191,8 @@ def main():
         try:
             selected, no_condition, other, suggested_label = _validate(
                 chat_json(
-                    client,
+                    snakemake.params.server_url,
+                    snakemake.params.api_key,
                     snakemake.params.model,
                     messages,
                     snakemake.params.model_params,

@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from llm import chat_json, make_client, systemone
+from llm import chat_json, systemone
 
 MRNA = "mrna"
 RIBO = "ribo_depleted_total_rna"
@@ -290,7 +290,7 @@ def _decision(server_url, api_key, model, state):
     return category, answer.get("confidence"), answer.get("probabilities")
 
 
-def _chat(client, model, model_params, lines):
+def _chat(server_url, api_key, model, model_params, lines):
     allowed = "\n".join(
         f"- {category}: {DESCRIPTIONS[category]}" for category in CATEGORIES
     )
@@ -304,7 +304,7 @@ def _chat(client, model, model_params, lines):
     ]
     for _ in range(3):
         try:
-            parsed = chat_json(client, model, messages, model_params)
+            parsed = chat_json(server_url, api_key, model, messages, model_params)
             category = str(parsed.get("rna_type", "")).strip()
             if category in CATEGORIES:
                 confidence = parsed.get("confidence")
@@ -366,11 +366,9 @@ def main():
                     fell_back = True
 
             if snakemake.params.backend == "chat" or fell_back:
-                client = make_client(
-                    snakemake.params.server_url, snakemake.params.api_key
-                )
                 category, subtype, chat_confidence, evidence = _chat(
-                    client,
+                    snakemake.params.server_url,
+                    snakemake.params.api_key,
                     snakemake.params.model,
                     snakemake.params.model_params,
                     lines,

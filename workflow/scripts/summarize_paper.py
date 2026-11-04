@@ -6,7 +6,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from evidence import PAPER_KEYS
-from llm import chat_json, make_client
+from llm import chat_json
 
 SYSTEM = (
     "You are a plant molecular biologist extracting experimental conditions "
@@ -116,7 +116,7 @@ def _normalize(parsed):
     return conditions
 
 
-def _summarize(client, model, model_params, prjna, excerpt):
+def _summarize(server_url, api_key, model, model_params, prjna, excerpt):
     messages = [
         {"role": "system", "content": SYSTEM},
         {"role": "user", "content": PROMPT.format(prjna=prjna, excerpt=excerpt)},
@@ -124,7 +124,9 @@ def _summarize(client, model, model_params, prjna, excerpt):
     last_error = None
     for _ in range(3):
         try:
-            parsed = chat_json(client, model, messages, model_params)
+            parsed = chat_json(
+                server_url, api_key, model, messages, model_params, max_tokens=2048
+            )
             if isinstance(parsed, dict):
                 return _normalize(parsed)
             last_error = ValueError("response was not a JSON object")
@@ -173,9 +175,9 @@ def main():
             len(excerpt),
             paper.get("status"),
         )
-        client = make_client(snakemake.params.server_url, snakemake.params.api_key)
         conditions = _summarize(
-            client,
+            snakemake.params.server_url,
+            snakemake.params.api_key,
             snakemake.params.model,
             snakemake.params.model_params,
             prjna,

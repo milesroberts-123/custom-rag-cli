@@ -107,12 +107,19 @@ The default stack runs against one local Ollama server:
 | Tissue | `tev1:4b` | `/v1/systemone` (decision) |
 | Germplasm | `tev1:4b` | `/v1/systemone` (decision) |
 | Study condition | `tev1:4b` | `/v1/systemone` (decision) |
-| Exposure | `qwen3.8` | `/v1/chat/completions` |
-| Paper summary | `qwen3.8` | `/v1/chat/completions` |
+| Exposure | `qwen3.8` | `/api/chat` (native) |
+| Paper summary | `qwen3.8` | `/api/chat` (native) |
 
 Each decision step falls back to the chat model if the decision endpoint
 fails. `config/config.yaml` sets `ollama.server_url` and `ollama.api_key`; the
 `OLLAMA_SERVER` and `OLLAMA_API_KEY` environment variables override them.
+
+Chat calls use Ollama's native `/api/chat` endpoint with `think: false`
+(thinking traces are pure latency for short JSON answers), JSON mode, and a
+generation cap of 1024 tokens (2048 for paper summaries). The server job runs
+with `OLLAMA_CONTEXT_LENGTH=16384` (prompts are ≤8k tokens; the model's baked-in
+262144 context would otherwise preallocate ~16x more KV memory) and
+`OLLAMA_NUM_PARALLEL=8` so several label jobs can be served at once.
 
 Tev1 requires Ollama 0.35 or newer. This workflow targets Ollama 0.40.11.
 

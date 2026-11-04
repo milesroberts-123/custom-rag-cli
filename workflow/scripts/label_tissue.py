@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from evidence import evidence_lines
-from llm import chat_json, make_client, systemone
+from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
 OTHER = "OTHER"
@@ -71,7 +71,16 @@ def _decision(server_url, api_key, model, state, categories, other_description):
     return category, answer.get("confidence"), answer.get("probabilities")
 
 
-def _chat(client, model, model_params, values, summary, categories, other_description):
+def _chat(
+    server_url,
+    api_key,
+    model,
+    model_params,
+    values,
+    summary,
+    categories,
+    other_description,
+):
     paper = (
         json.dumps(summary.get("conditions") or {}, sort_keys=True)
         if summary.get("has_paper")
@@ -90,7 +99,7 @@ def _chat(client, model, model_params, values, summary, categories, other_descri
     ]
     for _ in range(3):
         try:
-            parsed = chat_json(client, model, messages, model_params)
+            parsed = chat_json(server_url, api_key, model, messages, model_params)
             category = str(parsed.get("category", "")).strip()
             if category in categories or category == OTHER:
                 return category, str(parsed.get("evidence", "")).strip()
@@ -160,9 +169,9 @@ def main():
                 fell_back = True
 
         if snakemake.params.backend == "chat" or fell_back:
-            client = make_client(snakemake.params.server_url, snakemake.params.api_key)
             category, evidence = _chat(
-                client,
+                snakemake.params.server_url,
+                snakemake.params.api_key,
                 snakemake.params.model,
                 snakemake.params.model_params,
                 values,

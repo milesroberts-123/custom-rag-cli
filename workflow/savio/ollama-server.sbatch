@@ -17,7 +17,12 @@ export OLLAMA_LLM_LIBRARY=vulkan
 export OLLAMA_HOST=0.0.0.0:11434
 export OLLAMA_KEEP_ALIVE=2h
 export OLLAMA_MAX_LOADED_MODELS=2
-export OLLAMA_NUM_PARALLEL=4
+# Prompts never exceed ~8k tokens, so shrink the context from the model's
+# baked-in 262144. This cuts the KV cache preallocation ~16x (memory and
+# prefill cost) and makes room for more parallel slots. Requests are capped
+# with num_predict on the client side.
+export OLLAMA_CONTEXT_LENGTH=16384
+export OLLAMA_NUM_PARALLEL=8
 
 SERVER_FILE="${1:?usage: ollama-server.sbatch <server-file>}"
 mkdir -p "$(dirname "$SERVER_FILE")" .snakemake/slurm_logs

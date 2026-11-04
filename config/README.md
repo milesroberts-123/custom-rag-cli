@@ -174,8 +174,14 @@ the Savio run.sh recipe.
 | `exposure` | `qwen3.8` | Chat model for exposure labeling. |
 | `summary` | `qwen3.8` | Chat model for paper summarization. |
 
-Each `*_params` key is passed to the corresponding model request. The defaults
-set `temperature: 0` for deterministic calls.
+Each `*_params` key is passed to the corresponding model request as Ollama
+runtime options. The defaults set `temperature: 0` for deterministic calls.
+
+Chat requests go to the native `/api/chat` endpoint with `think: false`,
+JSON mode, and a 1024-token generation cap (2048 for paper summaries);
+single-choice chat fallbacks and exposure share the default. Transient
+connection failures, timeouts, and HTTP 429/5xx are retried three times
+with backoff.
 
 ## `ollama`
 
