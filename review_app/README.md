@@ -72,40 +72,42 @@ Open <http://127.0.0.1:8501>.
 
 ### Running on Savio
 
-Run one Streamlit process on a single login node inside `tmux` (so it
-survives disconnects), then connect from your laptop through an SSH tunnel:
+`hpc.brc.berkeley.edu` round-robins across several login nodes (`ln000`–
+`ln003`), and the SSH tunnel and the app must be on the **same node** for
+`localhost:8501` to resolve. So start the app and the tunnel in a single
+SSH command, using `review_app/savio-start.sh` — the tunnel's far end is
+then guaranteed to be the node the app runs on:
 
 ```bash
-# on Savio (login node)
-ssh savio
-module load python
-mamba activate review-app
-tmux
-cd /global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli
-bash review_app/run.sh
-# detach with Ctrl-b d — the app keeps running
+# on your laptop — leave this terminal open; it IS the tunnel
+ssh -L 8501:localhost:8501 savio \
+  "bash /global/scratch/users/milesroberts/moi_lab_projects/custom-rag-cli/review_app/savio-start.sh; \
+   echo 'app is up — leave this window open, Ctrl-C to close the tunnel'; \
+   sleep infinity"
 ```
 
-```bash
-# on your laptop, in a separate terminal
-ssh -L 8501:localhost:8501 savio
-# then open http://localhost:8501
-```
+Then open <http://localhost:8501>.
 
-The `savio` SSH alias already carries the BRC cert config, so the tunnel
-needs no extra setup and can be re-established at any time; the app and the
-review database persist in the tmux session.
+`savio-start.sh` records the app's host and PID in
+`results/review/app.txt` (on scratch). Reconnecting with the same command
+reuses a live app on the current node, or kills a stale app left on another
+node before starting a new one — so two app processes never touch the
+SQLite database at once. The app's own log is
+`.snakemake/slurm_logs/review-app.log`.
 
-The login node is the right host: the app needs no GPU or Ollama, `/global/
-scratch` is mounted there so all workflow outputs are readable, and compute
-nodes are needlessly awkward to reach (double-hop tunnels) and vanish when
-the job ends.
+Why the login node: the app needs no GPU or Ollama, `/global/scratch` is
+mounted there so all workflow outputs are readable, and compute nodes are
+needlessly awkward to reach (double-hop tunnels) and vanish when the job
+ends.
 
-The app binds to `127.0.0.1` by design:
+Notes:
 
-- Do **not** set `HOST=0.0.0.0` to skip the tunnel; the review database
-  should not be network-visible, and BRC's network won't make it reliably
-  reachable anyway.
+- Do **not** run `bash review_app/run.sh` in one SSH session and tunnel from
+  another `ssh savio` connection: the two connections can land on different
+  login nodes, and `localhost:8501` in the tunnel will hit the wrong node.
+- The app binds to `127.0.0.1` by design. Do not set `HOST=0.0.0.0` to skip
+  the tunnel; the review database should not be network-visible, and BRC's
+  network won't make it reliably reachable anyway.
 - Do not run multiple app processes against the same SQLite file on a shared
   filesystem. Multiple reviewers should tunnel to the same login-node
   process; if you ever need independent app hosts, move to Postgres.
