@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<SAMPLE_SET>
+<SAMPLE accession="SAMEA112139654" alias="E-MTAB-12369:LSM_IP_R1" center_name="Department of Biochemistry, University of Otago" broker_name="ArrayExpress">
+     <IDENTIFIERS>
+          <PRIMARY_ID>SAMEA112139654</PRIMARY_ID>
+          <SECONDARY_ID>ERS14248962</SECONDARY_ID>
+          <EXTERNAL_ID namespace="BioSample">SAMEA112139654</EXTERNAL_ID>
+          <SUBMITTER_ID namespace="Department of Biochemistry, University of Otago">E-MTAB-12369:LSM_IP_R1</SUBMITTER_ID>
+     </IDENTIFIERS>
+     <TITLE>LSM_IP_R1</TITLE>
+     <SAMPLE_NAME>
+          <TAXON_ID>3702</TAXON_ID>
+          <SCIENTIFIC_NAME>Arabidopsis thaliana</SCIENTIFIC_NAME>
+          <COMMON_NAME>thale cress</COMMON_NAME>
+     </SAMPLE_NAME>
+     <DESCRIPTION>Protocols: Plants grown in MS plates in continuous light (LL) for 12 days were vacuum-infiltrated with 1% formaldehyde for 15 min followed by quenching with 125 mM glycine. A whole-cell extract was prepared in RIP-lysis buffer. The extract was pre-cleared with Sepharose beads and subjected to immunoprecipitation with GFP-Trap beads (Chromotek). After extensive washing with RIP washing buffer, co-precipitated RNAs were extracted with Trizol (Invitrogen) and treated with DNase (Promega). RNAs were extracted with Trizol (Invitrogen) and treated with DNase (Promega). Libraries were prepared by genome center at the Max Planck-Genome-Centre Cologne (MP-GC).</DESCRIPTION>
+     <SAMPLE_LINKS>
+    <SAMPLE_LINK>
+        <XREF_LINK>
+            <DB>ENA-FASTQ-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=ERS14248962&result=read_run&fields=run_accession,fastq_ftp,fastq_md5,fastq_bytes]]></ID>
+        </XREF_LINK>
+    </SAMPLE_LINK>
+    <SAMPLE_LINK>
+        <XREF_LINK>
+            <DB>ENA-SUBMITTED-FILES</DB>
+            <ID><![CDATA[https://www.ebi.ac.uk/ena/portal/api/filereport?accession=ERS14248962&result=read_run&fields=run_accession,submitted_ftp,submitted_md5,submitted_bytes,submitted_format]]></ID>
+        </XREF_LINK>
+    </SAMPLE_LINK>
+</SAMPLE_LINKS>
+<SAMPLE_ATTRIBUTES>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>ENA-CHECKLIST</TAG>
+               <VALUE>ERC000011</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>isolate</TAG>
+               <VALUE>not applicable</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>ENA-FIRST-PUBLIC</TAG>
+               <VALUE>2023-05-31T00:15:38Z</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>cultivar</TAG>
+               <VALUE>Columbia</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>organism</TAG>
+               <VALUE>Arabidopsis thaliana</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>organism</TAG>
+               <VALUE>Arabidopsis thaliana</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>ENA-LAST-UPDATE</TAG>
+               <VALUE>2023-05-31T00:15:38Z</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>scientific_name</TAG>
+               <VALUE>Arabidopsis thaliana</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>common name</TAG>
+               <VALUE>thale cress</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>organism part</TAG>
+               <VALUE>whole organism</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>age</TAG>
+               <VALUE>12</VALUE>
+               <UNITS>day</UNITS>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>developmental stage</TAG>
+               <VALUE>seedling development stage</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>genotype</TAG>
+               <VALUE>35S-LSM4-YFP in lsm4-1</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>ENA-FIRST-PUBLIC</TAG>
+               <VALUE>2023-05-31</VALUE>
+          </SAMPLE_ATTRIBUTE>
+          <SAMPLE_ATTRIBUTE>
+               <TAG>ENA-LAST-UPDATE</TAG>
+               <VALUE>2023-05-31</VALUE>
+          </SAMPLE_ATTRIBUTE>
+     </SAMPLE_ATTRIBUTES>
+</SAMPLE>
+</SAMPLE_SET>

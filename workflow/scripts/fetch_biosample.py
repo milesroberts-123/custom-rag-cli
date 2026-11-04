@@ -1,11 +1,24 @@
-"""Fetch BioSample records from NCBI and store normalized per-sample JSON."""
+"""Fetch BioSample records and store normalized per-sample JSON.
+
+NCBI db=biosample is the primary source (SAMN/SAMD/... accessions). ENA-origin
+accessions (SAMEA...) are frequently absent from NCBI's mirror, so any
+accession NCBI returns nothing for gets a fallback request to ENA's
+BioSample XML API, which is parsed into the same normalized record shape.
+Accessions missing from both sources still fail the job loudly.
+"""
 
 import json
 import os
+import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import requests
+
 from ncbi import fetch_efetch, strip_namespaces
+
+ENA_XML_URL = "https://www.ebi.ac.uk/ena/browser/api/xml/{accession}"
+ENA_RATE_LIMIT_SECONDS = 0.3
 
 
 def _parse(xml_bytes):
@@ -29,8 +42,59 @@ def _parse(xml_bytes):
             "accession": accession,
             "organism": (organism or "").strip(),
             "attributes": attributes,
+            "fetch_source": "ncbi",
         }
     return records
+
+
+def parse_ena_sample(xml_bytes):
+    """Parse an INSDC BioSample XML from ENA into the normalized record shape.
+
+    ENA duplicates some tags (e.g. ``organism`` appears as both a structured
+    attribute and a plain one); last value wins, matching NCBI behavior where
+    a later attribute overwrites an earlier one in the attributes dict.
+    """
+    root = ET.fromstring(xml_bytes)
+    sample = root.find(".//SAMPLE")
+    if sample is None:
+        return None
+    accession = sample.get("accession")
+    attributes = {}
+    for attribute in sample.findall(".//SAMPLE_ATTRIBUTE"):
+        tag = attribute.findtext("TAG")
+        value = attribute.findtext("VALUE")
+        if tag and value:
+            attributes[tag.strip()] = value.strip()
+    organism = sample.findtext(".//SAMPLE_NAME/SCIENTIFIC_NAME") or ""
+    return {
+        "accession": accession,
+        "organism": (attributes.get("organism") or organism).strip(),
+        "attributes": attributes,
+        "fetch_source": "ena",
+    }
+
+
+def _ena_record(accession):
+    """Fetch one BioSample record from ENA, retrying transient failures."""
+    time.sleep(ENA_RATE_LIMIT_SECONDS)
+    delay = 1.0
+    for attempt in range(3):
+        try:
+            response = requests.get(
+                ENA_XML_URL.format(accession=accession), timeout=120
+            )
+            if response.status_code in (429, 502, 503, 504):
+                time.sleep(delay)
+                delay *= 2
+                continue
+            response.raise_for_status()
+            return parse_ena_sample(response.content)
+        except requests.RequestException:
+            if attempt == 2:
+                return None
+            time.sleep(delay)
+            delay *= 2
+    return None
 
 
 def main():
@@ -67,10 +131,18 @@ def main():
             )
         )
 
+    # ENA-origin accessions are usually absent from NCBI's BioSample mirror;
+    # fall back to ENA's XML API for anything NCBI does not have.
     missing = [samn for samn, _ in todo if samn not in records]
-    if missing:
+    for samn in missing:
+        record = _ena_record(samn)
+        if record is not None:
+            records[samn] = record
+
+    unresolved = sorted(samn for samn, _ in todo if samn not in records)
+    if unresolved:
         raise RuntimeError(
-            "NCBI returned no BioSample record for: " + ", ".join(sorted(missing))
+            "No BioSample record found in NCBI or ENA for: " + ", ".join(unresolved)
         )
 
     for samn, path in todo:

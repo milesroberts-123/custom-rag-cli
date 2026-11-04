@@ -70,6 +70,11 @@ lint/format/test checks in CI.
   `min_interval_seconds`. It is evidence-only and fail-soft: query failures
   become `athrdb_note` stubs, never workflow errors. Do not turn it into
   per-run jobs; that multiplies request pressure.
+- ENA-origin accessions (ERR/SAMEA/PRJEB) work via NCBI mirrors, except
+  BioSample: `SAMEA…` records fall back to ENA's XML API
+  (`fetch_source: "ena"` in the stored record). Both-misses fail the window.
+  ATHRDB has no coverage for ENA-only libraries (no GEO record); expect
+  `no_geo_record` stubs there.
 - Window batching (`batch_size`/`batch_index`) slices the sheet per
   invocation; `aggregate` rescans the full sheet and accumulates completed
   runs, so `labels.tsv` grows across windows. The single-job metadata

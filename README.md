@@ -204,6 +204,21 @@ keyed by GEO GSM accession.
 - The review app shows the record (with a GEO link) in the "AthRDB" tab and
   reported day length / temperature on the paper card.
 
+## ENA (ERR/SAMEA/PRJEB) submissions
+
+Sheets with European (ENA) accessions work through NCBI's mirrors, with one
+exception per record type:
+
+| Record | ENA accession | Source |
+|---|---|---|
+| SRA experiment | `ERR…` / `ERX…` | NCBI `db=sra` mirrors ENA runs; no change |
+| BioProject | `PRJEB…` | NCBI `db=bioproject` mirrors ENA studies; no change |
+| BioSample | `SAMEA…` | **Often absent from NCBI.** Missing accessions fall back to ENA's BioSample XML API and are stored with `"fetch_source": "ena"`. Records from both sources share the same normalized shape. |
+| ATHRDB curation | `SAMEA…` runs | GEO-keyed: ENA-only libraries get `no_geo_record` stubs and classify from SRA/BioSample evidence only. |
+
+Accessions missing from both NCBI and ENA (typically typos) fail the window
+loudly.
+
 If a condition exists but no candidate fits, the exposure layer returns
 `other: true` with a free-text `suggested_label` for review. `unknown`/`OTHER`
 is also used for germplasm and study condition when the evidence is
