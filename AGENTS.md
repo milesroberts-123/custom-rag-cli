@@ -57,6 +57,8 @@ lint/format/test checks in CI.
   `.snakemake/slurm_logs/` (the plugin's default); do not add `log:` directives
   back to rules, and write script progress with the shared `script_logging`
   logger so messages land in those job logs.
+- Savio sync is git-only: never scp/rsync repository files to Savio. Commit
+  and push locally, then `git pull` in the scratch clone.
 - Tissue, germplasm, and the two PECO layers use `OTHER`/`unknown` sentinels
   plus review flags in `results/labels.tsv`; see `README.md` and
   `config/README.md` for thresholds and setup.
