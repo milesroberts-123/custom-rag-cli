@@ -239,6 +239,10 @@ properties:
       flag_low_confidence_paper:
         type: boolean
         default: true
+      athrdb_crosscheck:
+        type: boolean
+        default: true
+        description: flag review when AthRDB curation disagrees with the labels
     required:
       - tissue_confidence
       - germplasm_confidence

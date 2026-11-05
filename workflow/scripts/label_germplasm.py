@@ -170,20 +170,6 @@ def _chat(server_url, api_key, model, model_params, values, categories, descript
     return UNKNOWN, ""
 
 
-def athrdb_lines(record):
-    """Return curated genotype/ecotype evidence lines from an ATHRDB record."""
-    lines = []
-    if not record or not record.get("athrdb_hit"):
-        return lines
-    genotype = record.get("athrdb_genotype")
-    if genotype:
-        lines.append(f"athrdb_genotype: {genotype}")
-    ecotype = record.get("athrdb_ecotype")
-    if ecotype and ecotype != genotype:
-        lines.append(f"athrdb_ecotype: {ecotype}")
-    return lines
-
-
 from script_logging import setup as _setup
 
 LOGGER = _setup("label_germplasm")
@@ -202,13 +188,10 @@ def _label_one(run, inputs, params):
         sra = json.load(handle)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
-    with open(inputs["athrdb"]) as handle:
-        athrdb = json.load(handle)
 
     categories = list(params["categories"])
     descriptions = dict(params["descriptions"])
     values = evidence_lines(biosample, sra, summary, list(params["attribute_keys"]))
-    values.extend(athrdb_lines(athrdb))
 
     category = None
     confidence = None
@@ -295,7 +278,6 @@ def main():
                 "biosample": f"results/metadata/biosample/{samn}.json",
                 "sra": f"results/metadata/sra/{run}.json",
                 "summary": f"results/summary/{prjna}.json",
-                "athrdb": f"results/metadata/athrdb/{run}.json",
                 "output": f"results/germplasm/{run}.json",
             },
             params,

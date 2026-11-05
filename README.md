@@ -219,9 +219,13 @@ keyed by GEO GSM accession.
   skips the site entirely. Skips are marked in `athrdb_note`, and reruns only
   query runs without an existing `results/metadata/athrdb/{run}.json`.
 - ATHRDB is evidence, never blocking: failed lookups are recorded and the run
-  proceeds. Its tissue/genotype/ecotype lines are appended to the tissue and
-  germplasm prompts, and `labels.tsv` carries `athrdb_gsm`, `athrdb_tissue`,
-  `athrdb_genotype`, `athrdb_ecotype` for cross-checking during review.
+  proceeds. It is **not** an input to the tissue or germplasm labelers — the
+  serial fetch would otherwise gate 40 chunk jobs per window. Instead,
+  `aggregate` compares the curation against the model labels after labeling
+  and adds the review reason `athrdb_disagreement` on a clash
+  (`review.athrdb_crosscheck` in the config). `labels.tsv` carries
+  `athrdb_gsm`, `athrdb_tissue`, `athrdb_genotype`, `athrdb_ecotype` for
+  cross-checking during review.
 - The review app shows the record (with a GEO link) in the "AthRDB" tab and
   reported day length / temperature on the paper card.
 

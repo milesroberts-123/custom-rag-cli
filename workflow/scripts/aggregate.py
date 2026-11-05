@@ -78,7 +78,39 @@ def _exclusion_reason(rna_type):
     return f"rna_type_{category}_not_accepted"
 
 
-def _review_reasons(tissue, germplasm, exposure, study, summary, rna_type, review):
+def _athrdb_crosscheck(athrdb, tissue, germplasm):
+    """Compare AthRDB curation against the model labels; True when they clash.
+
+    The labelers do not see AthRDB anymore; this is the independent-curation
+    review signal. Only `athrdb_hit` records are compared, and only when both
+    sides have a concrete value.
+    """
+    if not athrdb.get("athrdb_hit"):
+        return False
+
+    curated_tissue = (athrdb.get("athrdb_tissue") or "").strip()
+    model_tissue = str(tissue.get("tissue") or "")
+    if (
+        curated_tissue
+        and model_tissue
+        and model_tissue != "OTHER"
+        and curated_tissue.lower() != model_tissue.lower()
+    ):
+        return True
+
+    curated_genotype = (athrdb.get("athrdb_genotype") or "").strip()
+    model_germplasm = germplasm.get("germplasm_type")
+    if curated_genotype and model_germplasm not in (None, "", "unknown"):
+        curated_natural = "wild" in curated_genotype.lower()
+        model_natural = model_germplasm == "natural_accession"
+        if curated_natural != model_natural:
+            return True
+    return False
+
+
+def _review_reasons(
+    tissue, germplasm, exposure, study, summary, rna_type, athrdb, review
+):
     reasons = []
 
     confidence = rna_type.get("confidence")
@@ -126,6 +158,11 @@ def _review_reasons(tissue, germplasm, exposure, study, summary, rna_type, revie
         reasons.append("no_paper")
     elif review["flag_low_confidence_paper"] and summary.get("low_confidence", False):
         reasons.append("paper_low_confidence")
+
+    if review.get("athrdb_crosscheck", True) and _athrdb_crosscheck(
+        athrdb, tissue, germplasm
+    ):
+        reasons.append("athrdb_disagreement")
     return list(dict.fromkeys(reasons))
 
 
@@ -205,7 +242,7 @@ def main():
             if terms.get(term["term_id"], {}).get("growth_system")
         ]
         reasons = _review_reasons(
-            tissue, germplasm, exposure, study, summary, rna_type, review
+            tissue, germplasm, exposure, study, summary, rna_type, athrdb, review
         )
 
         rows.append(

@@ -112,6 +112,7 @@ SRA attributes. It does not use the paper. Other RNA types are written to
 | `rna_type_confidence` | `0.6` | Flag included RNA-type calls below this confidence. |
 | `flag_missing_paper` | `true` | Flag projects without a linked paper. |
 | `flag_low_confidence_paper` | `true` | Flag abstract-only or low-confidence paper summaries. |
+| `athrdb_crosscheck` | `true` | Flag review when AthRDB curation disagrees with the tissue/germplasm labels. |
 
 ## `paper`
 

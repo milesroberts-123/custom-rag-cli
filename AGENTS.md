@@ -76,7 +76,10 @@ lint/format/test checks in CI.
   `athrdb.max_requests`). Jitter is one-sided and never shortens a gap below
   `min_interval_seconds`. It is evidence-only and fail-soft: query failures
   become `athrdb_note` stubs, never workflow errors. Do not turn it into
-  per-run jobs; that multiplies request pressure.
+  per-run jobs; that multiplies request pressure. It is NOT an input to the
+  tissue/germplasm labelers (that gated whole windows behind the serial
+  fetch); aggregate cross-checks it against the labels and flags
+  `athrdb_disagreement` for review instead.
 - ENA-origin accessions (ERR/SAMEA/PRJEB) work via NCBI mirrors, except
   BioSample: `SAMEA…` records fall back to ENA's XML API
   (`fetch_source: "ena"` in the stored record). Both-misses fail the window.

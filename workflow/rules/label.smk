@@ -11,7 +11,6 @@ rule label_tissue:
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
-        athrdb=chunk_athrdb,
     output:
         "results/chunks/tissue/{chunk}.done",
     conda:
@@ -35,7 +34,6 @@ rule label_germplasm:
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
-        athrdb=chunk_athrdb,
     output:
         "results/chunks/germplasm/{chunk}.done",
     conda:

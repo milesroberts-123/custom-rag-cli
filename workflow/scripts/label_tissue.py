@@ -126,14 +126,10 @@ def _label_one(run, inputs, params):
         sra = json.load(handle)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
-    with open(inputs["athrdb"]) as handle:
-        athrdb = json.load(handle)
 
     categories = list(params["categories"])
     keywords = dict(params["keywords"])
     values = evidence_lines(biosample, sra, summary, list(params["attribute_keys"]))
-    if athrdb.get("athrdb_hit") and athrdb.get("athrdb_tissue"):
-        values.append(f"athrdb_tissue: {athrdb['athrdb_tissue']}")
 
     confidence = None
     probabilities = None
@@ -213,7 +209,6 @@ def main():
                 "biosample": f"results/metadata/biosample/{samn}.json",
                 "sra": f"results/metadata/sra/{run}.json",
                 "summary": f"results/summary/{prjna}.json",
-                "athrdb": f"results/metadata/athrdb/{run}.json",
                 "output": f"results/tissue/{run}.json",
             },
             params,

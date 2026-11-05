@@ -263,6 +263,9 @@ review:
   rna_type_confidence: 0.6
   flag_missing_paper: true
   flag_low_confidence_paper: true
+  # Compare AthRDB curation against the model labels after labeling (the
+  # labelers themselves do not read AthRDB) and flag disagreements for review.
+  athrdb_crosscheck: true
 
 models:
   rna_type_backend: decision

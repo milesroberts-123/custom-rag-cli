@@ -31,11 +31,6 @@ def rna_type_file(wildcards):
     return f"results/rna_type/{wildcards.run}.json"
 
 
-def athrdb_file(wildcards):
-    """Input function: curated ATHRDB annotations for a run."""
-    return f"results/metadata/athrdb/{wildcards.run}.json"
-
-
 def summary_file(wildcards):
     """Input function: per-project paper summary for a run."""
     return f"results/summary/{prjna_of(wildcards.run)}.json"
@@ -96,7 +91,3 @@ def chunk_sra(wildcards):
 
 def chunk_summaries(wildcards):
     return [f"results/summary/{prjna}.json" for prjna in chunk_prjnas(wildcards)]
-
-
-def chunk_athrdb(wildcards):
-    return [f"results/metadata/athrdb/{run}.json" for run in chunk_runs(wildcards)]
