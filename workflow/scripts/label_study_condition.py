@@ -88,22 +88,20 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_study_condition")
 
 
-def main():
-    rna_type = load_rna_type(snakemake.input.rna_type)
+def _label_one(run, inputs, params, study_terms, criteria, term_by_label):
+    """Classify one run's study condition; returns the result dict or None."""
+    rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
-        write_skip(snakemake.wildcards.run, rna_type, snakemake.output[0])
-        return
+        write_skip(run, rna_type, inputs["output"])
+        return None
 
-    with open(snakemake.input.biosample) as handle:
+    with open(inputs["biosample"]) as handle:
         biosample = json.load(handle)
-    with open(snakemake.input.sra) as handle:
+    with open(inputs["sra"]) as handle:
         sra = json.load(handle)
-    with open(snakemake.input.summary) as handle:
+    with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
-    study_terms = _load_terms(snakemake.input.index)
-    criteria = _criteria(study_terms)
-    term_by_label = {term["label"]: term for term in study_terms}
     values = evidence_lines(biosample, sra, summary)
 
     category = None
@@ -114,12 +112,12 @@ def main():
 
     if values:
         fell_back = False
-        if snakemake.params.backend == "decision":
+        if params["backend"] == "decision":
             try:
                 category, confidence, probabilities = _decision(
-                    snakemake.params.server_url,
-                    snakemake.params.api_key,
-                    snakemake.params.decision_model,
+                    params["server_url"],
+                    params["api_key"],
+                    params["decision_model"],
                     {"evidence": values},
                     criteria,
                 )
@@ -132,12 +130,12 @@ def main():
                 )
                 fell_back = True
 
-        if snakemake.params.backend == "chat" or fell_back:
+        if params["backend"] == "chat" or fell_back:
             category, evidence = _chat(
-                snakemake.params.server_url,
-                snakemake.params.api_key,
-                snakemake.params.model,
-                snakemake.params.model_params,
+                params["server_url"],
+                params["api_key"],
+                params["model"],
+                params["model_params"],
                 values,
                 criteria,
             )
@@ -150,7 +148,7 @@ def main():
 
     term = term_by_label.get(category)
     result = {
-        "run": snakemake.wildcards.run,
+        "run": run,
         "layer": "study_condition",
         "term_id": term["id"] if term else None,
         "label": term["label"] if term else OTHER,
@@ -164,14 +162,41 @@ def main():
 
     LOGGER.info(
         "%s: study_condition=%s (source=%s, confidence=%s)",
-        snakemake.wildcards.run,
+        run,
         category,
         source,
         confidence,
     )
-    output = Path(snakemake.output[0])
+    output = Path(inputs["output"])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    return result
+
+
+def main():
+    params = dict(snakemake.params)
+    study_terms = _load_terms(snakemake.input.index)
+    criteria = _criteria(study_terms)
+    term_by_label = {term["label"]: term for term in study_terms}
+    for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
+        _label_one(
+            run,
+            {
+                "rna_type": f"results/rna_type/{run}.json",
+                "biosample": f"results/metadata/biosample/{samn}.json",
+                "sra": f"results/metadata/sra/{run}.json",
+                "summary": f"results/summary/{prjna}.json",
+                "output": f"results/study_condition/{run}.json",
+            },
+            params,
+            study_terms,
+            criteria,
+            term_by_label,
+        )
+
+    marker = Path(snakemake.output[0])
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
 
 
 if __name__ == "__main__":

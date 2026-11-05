@@ -68,10 +68,10 @@ rule all:
     default_target: True
     input:
         expand("results/rna_type/{run}.json", run=RUNS),
-        expand("results/tissue/{run}.json", run=RUNS),
-        expand("results/germplasm/{run}.json", run=RUNS),
-        expand("results/exposure/{run}.json", run=RUNS),
-        expand("results/study_condition/{run}.json", run=RUNS),
+        expand("results/chunks/tissue/{chunk}.done", chunk=CHUNK_IDS),
+        expand("results/chunks/germplasm/{chunk}.done", chunk=CHUNK_IDS),
+        expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),
+        expand("results/chunks/study_condition/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/metadata/bioproject/{prjna}.json", prjna=PRJNAS),
         expand("results/metadata/athrdb/{run}.json", run=RUNS),
         "results/labels.tsv",

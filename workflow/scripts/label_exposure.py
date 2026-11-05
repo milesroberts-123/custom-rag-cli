@@ -146,23 +146,22 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_exposure")
 
 
-def main():
-    rna_type = load_rna_type(snakemake.input.rna_type)
+def _label_one(run, inputs, params, model, terms, synonyms, embeddings):
+    """Label one run's exposure terms; returns the result dict or None."""
+    rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
-        write_skip(snakemake.wildcards.run, rna_type, snakemake.output[0])
-        return
+        write_skip(run, rna_type, inputs["output"])
+        return None
 
-    with open(snakemake.input.biosample) as handle:
+    with open(inputs["biosample"]) as handle:
         biosample = json.load(handle)
-    with open(snakemake.input.sra) as handle:
+    with open(inputs["sra"]) as handle:
         sra = json.load(handle)
-    with open(snakemake.input.summary) as handle:
+    with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
-    terms, synonyms, embeddings = _load_index(snakemake.input.index)
     allowed_ids = {term["id"] for term in terms if term.get("branch") == "exposure"}
-    top_k = int(snakemake.params.top_k)
-    model = SentenceTransformer(snakemake.params.embed_model)
+    top_k = int(params["top_k"])
     query_text = _query_text(biosample, sra, summary)
     candidates, max_score = _candidates(
         query_text, synonyms, terms, embeddings, model, top_k, allowed_ids
@@ -191,11 +190,11 @@ def main():
         try:
             selected, no_condition, other, suggested_label = _validate(
                 chat_json(
-                    snakemake.params.server_url,
-                    snakemake.params.api_key,
-                    snakemake.params.model,
+                    params["server_url"],
+                    params["api_key"],
+                    params["model"],
                     messages,
-                    snakemake.params.model_params,
+                    params["model_params"],
                 ),
                 candidate_ids,
                 term_by_id,
@@ -214,12 +213,12 @@ def main():
             )
 
     if selected is None:
-        raise RuntimeError(f"could not label {snakemake.wildcards.run}: {last_error}")
+        raise RuntimeError(f"could not label {run}: {last_error}")
 
     result = {
-        "run": snakemake.wildcards.run,
+        "run": run,
         "layer": "exposure",
-        "model": snakemake.params.model,
+        "model": params["model"],
         "n_candidates": len(candidates),
         "no_condition": no_condition,
         "other": other,
@@ -231,15 +230,43 @@ def main():
 
     LOGGER.info(
         "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s)",
-        snakemake.wildcards.run,
+        run,
         len(selected),
         no_condition,
         other,
         max_score,
     )
-    output = Path(snakemake.output[0])
+    output = Path(inputs["output"])
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+    return result
+
+
+def main():
+    params = dict(snakemake.params)
+    terms, synonyms, embeddings = _load_index(snakemake.input.index)
+    # The encoder is the expensive per-job constant; load it once per chunk.
+    model = SentenceTransformer(params["embed_model"])
+    for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
+        _label_one(
+            run,
+            {
+                "rna_type": f"results/rna_type/{run}.json",
+                "biosample": f"results/metadata/biosample/{samn}.json",
+                "sra": f"results/metadata/sra/{run}.json",
+                "summary": f"results/summary/{prjna}.json",
+                "output": f"results/exposure/{run}.json",
+            },
+            params,
+            model,
+            terms,
+            synonyms,
+            embeddings,
+        )
+
+    marker = Path(snakemake.output[0])
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
 
 
 if __name__ == "__main__":

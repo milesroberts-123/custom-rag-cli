@@ -88,6 +88,10 @@ lint/format/test checks in CI.
   fetchers skip existing outputs, which makes repeated windows and later
   windows safe; ATHRDB `request_cap_reached` stubs are retried when budget
   remains. Keep `batch_size` ≤ `athrdb.max_requests`.
+- The four label rules run in chunk jobs of `label_chunk_size` runs (default
+  50), not one job per run: per-run output paths are unchanged, but the
+  interpreter and sentence-transformer encoder load once per chunk. A failed
+  chunk redoes up to `label_chunk_size` runs.
 
 ## Review app
 

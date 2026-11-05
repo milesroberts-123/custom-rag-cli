@@ -1,16 +1,26 @@
+# Label rules process runs in chunks (`label_chunk_size` runs per job) so the
+# interpreter and model payloads load once per chunk. Snakemake cannot list
+# per-run outputs on a multi-run job, so each chunk declares one marker file;
+# the script writes the per-run JSONs beside it, and downstream rules depend
+# on the markers. The per-run files stay the aggregation/review contract.
+
+
 rule label_tissue:
     input:
-        rna_type=rna_type_file,
-        biosample=biosample_file,
-        sra=sra_file,
-        summary=summary_file,
-        athrdb=athrdb_file,
+        rna_type=chunk_rna_types,
+        biosample=chunk_biosamples,
+        sra=chunk_sra,
+        summary=chunk_summaries,
+        athrdb=chunk_athrdb,
     output:
-        "results/tissue/{run}.json",
+        "results/chunks/tissue/{chunk}.done",
     conda:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("tissue", decision=True),
+        runs=chunk_runs,
+        samns=chunk_samns,
+        prjnas=chunk_prjnas,
         categories=config["tissue"]["categories"],
         keywords=config["tissue"]["keywords"],
         attribute_keys=config["tissue"]["attribute_keys"],
@@ -21,17 +31,20 @@ rule label_tissue:
 
 rule label_germplasm:
     input:
-        rna_type=rna_type_file,
-        biosample=biosample_file,
-        sra=sra_file,
-        summary=summary_file,
-        athrdb=athrdb_file,
+        rna_type=chunk_rna_types,
+        biosample=chunk_biosamples,
+        sra=chunk_sra,
+        summary=chunk_summaries,
+        athrdb=chunk_athrdb,
     output:
-        "results/germplasm/{run}.json",
+        "results/chunks/germplasm/{chunk}.done",
     conda:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("germplasm", decision=True),
+        runs=chunk_runs,
+        samns=chunk_samns,
+        prjnas=chunk_prjnas,
         categories=config["germplasm"]["categories"],
         attribute_keys=config["germplasm"]["attribute_keys"],
         natural_accessions=config["germplasm"]["natural_accessions"],
@@ -43,17 +56,20 @@ rule label_germplasm:
 
 rule label_exposure:
     input:
-        rna_type=rna_type_file,
-        biosample=biosample_file,
-        sra=sra_file,
-        summary=summary_file,
+        rna_type=chunk_rna_types,
+        biosample=chunk_biosamples,
+        sra=chunk_sra,
+        summary=chunk_summaries,
         index="results/peco/peco_index",
     output:
-        "results/exposure/{run}.json",
+        "results/chunks/exposure/{chunk}.done",
     conda:
         "../envs/peco_llm.yaml"
     params:
         **llm_rule_params("exposure"),
+        runs=chunk_runs,
+        samns=chunk_samns,
+        prjnas=chunk_prjnas,
         top_k=config["peco"]["top_k"],
         embed_model=config["peco"]["embed_model"],
     script:
@@ -62,17 +78,20 @@ rule label_exposure:
 
 rule label_study_condition:
     input:
-        rna_type=rna_type_file,
-        biosample=biosample_file,
-        sra=sra_file,
-        summary=summary_file,
+        rna_type=chunk_rna_types,
+        biosample=chunk_biosamples,
+        sra=chunk_sra,
+        summary=chunk_summaries,
         index="results/peco/peco_index",
     output:
-        "results/study_condition/{run}.json",
+        "results/chunks/study_condition/{chunk}.done",
     conda:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("study", decision=True),
+        runs=chunk_runs,
+        samns=chunk_samns,
+        prjnas=chunk_prjnas,
     script:
         "../scripts/label_study_condition.py"
 
@@ -80,10 +99,10 @@ rule label_study_condition:
 rule aggregate:
     input:
         rna_type=expand("results/rna_type/{run}.json", run=RUNS),
-        tissue=expand("results/tissue/{run}.json", run=RUNS),
-        germplasm=expand("results/germplasm/{run}.json", run=RUNS),
-        exposure=expand("results/exposure/{run}.json", run=RUNS),
-        study=expand("results/study_condition/{run}.json", run=RUNS),
+        tissue=expand("results/chunks/tissue/{chunk}.done", chunk=CHUNK_IDS),
+        germplasm=expand("results/chunks/germplasm/{chunk}.done", chunk=CHUNK_IDS),
+        exposure=expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),
+        study=expand("results/chunks/study_condition/{chunk}.done", chunk=CHUNK_IDS),
         athrdb=expand("results/metadata/athrdb/{run}.json", run=RUNS),
         summaries=expand("results/summary/{prjna}.json", prjna=PRJNAS),
         index="results/peco/peco_index",

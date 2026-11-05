@@ -7,6 +7,10 @@ samples: config/samples.tsv
 batch_size: 0
 batch_index: 0
 
+# Label rules process runs in chunk jobs: one interpreter/encoder load per
+# chunk of this many runs instead of per run. Outputs stay per-run.
+label_chunk_size: 50
+
 ncbi:
   email: milesroberts@berkeley.edu
   api_key_env: NCBI_API_KEY
