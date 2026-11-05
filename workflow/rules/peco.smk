@@ -21,5 +21,6 @@ rule build_peco_index:
         exposure_branch=config["peco"]["exposure_branch"],
         study_branch=config["peco"]["study_branch"],
         growth_system_root=config["peco"]["growth_system_root"],
+        growth_system_extra_roots=config["peco"]["growth_system_extra_roots"],
     script:
         "../scripts/build_peco_index.py"

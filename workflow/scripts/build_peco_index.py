@@ -53,6 +53,8 @@ def main():
     exposure_ids = _descendant_ids(ontology, snakemake.params.exposure_branch)
     study_ids = _descendant_ids(ontology, snakemake.params.study_branch)
     growth_ids = _descendant_ids(ontology, snakemake.params.growth_system_root)
+    for root in snakemake.params.growth_system_extra_roots:
+        growth_ids |= _descendant_ids(ontology, root)
 
     terms = []
     for term in ontology.terms():

@@ -60,6 +60,13 @@ properties:
       growth_system_root:
         type: string
         default: PECO:0007147
+      growth_system_extra_roots:
+        type: array
+        items:
+          type: string
+        default:
+          - PECO:0007128
+          - PECO:0007175
     required:
       - url
   paper:
@@ -264,12 +271,6 @@ properties:
         minimum: 0
         maximum: 1
         default: 0.6
-      flag_missing_paper:
-        type: boolean
-        default: true
-      flag_low_confidence_paper:
-        type: boolean
-        default: true
       athrdb_crosscheck:
         type: boolean
         default: true
@@ -280,8 +281,6 @@ properties:
       - exposure_retrieval_score
       - study_confidence
       - rna_type_confidence
-      - flag_missing_paper
-      - flag_low_confidence_paper
   models:
     type: object
     properties:

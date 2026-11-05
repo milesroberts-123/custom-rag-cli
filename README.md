@@ -291,7 +291,9 @@ libraries as natural accessions.
 Review reasons: `rna_type_low_confidence`, `tissue_other`,
 `tissue_low_confidence`, `germplasm_unknown`, `germplasm_low_confidence`,
 `exposure_other`, `exposure_weak_retrieval`, `study_other`,
-`study_low_confidence`, `no_paper`, `paper_low_confidence`.
+`study_low_confidence`, `athrdb_disagreement`. Paper availability is reported
+in the `has_paper`/`paper_low_confidence` columns but does not itself trigger
+review.
 
 `results/labels.excluded.tsv` contains only non-eligible runs with `run`,
 `biosample`, `bioproject`, `species`, `rna_type`, `rna_subtype`,

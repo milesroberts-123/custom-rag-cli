@@ -25,6 +25,13 @@ peco:
   exposure_branch: PECO:0001001
   study_branch: PECO:0007231
   growth_system_root: PECO:0007147
+  # Additional exposure subtrees that double as growth-condition signals:
+  # photoperiod/day length (PECO:0007128) and temperature regime (PECO:0007175).
+  # Selected terms under any root populate growth_system_ids/labels in
+  # labels.tsv while staying in the exposure annotation too.
+  growth_system_extra_roots:
+    - PECO:0007128
+    - PECO:0007175
 
 paper:
   max_chars: 12000
@@ -305,8 +312,6 @@ review:
   exposure_retrieval_score: 0.55
   study_confidence: 0.6
   rna_type_confidence: 0.6
-  flag_missing_paper: true
-  flag_low_confidence_paper: true
   # Compare AthRDB curation against the model labels after labeling (the
   # labelers themselves do not read AthRDB) and flag disagreements for review.
   athrdb_crosscheck: true

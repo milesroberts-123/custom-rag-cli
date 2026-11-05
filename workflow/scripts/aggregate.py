@@ -122,9 +122,7 @@ def _athrdb_crosscheck(athrdb, tissue, germplasm):
     return False
 
 
-def _review_reasons(
-    tissue, germplasm, exposure, study, summary, rna_type, athrdb, review
-):
+def _review_reasons(tissue, germplasm, exposure, study, rna_type, athrdb, review):
     reasons = []
 
     confidence = rna_type.get("confidence")
@@ -167,11 +165,6 @@ def _review_reasons(
         review["study_confidence"]
     ):
         reasons.append("study_low_confidence")
-
-    if review["flag_missing_paper"] and not summary.get("has_paper", False):
-        reasons.append("no_paper")
-    elif review["flag_low_confidence_paper"] and summary.get("low_confidence", False):
-        reasons.append("paper_low_confidence")
 
     if review.get("athrdb_crosscheck", True) and _athrdb_crosscheck(
         athrdb, tissue, germplasm
@@ -256,7 +249,7 @@ def main():
             if terms.get(term["term_id"], {}).get("growth_system")
         ]
         reasons = _review_reasons(
-            tissue, germplasm, exposure, study, summary, rna_type, athrdb, review
+            tissue, germplasm, exposure, study, rna_type, athrdb, review
         )
 
         rows.append(

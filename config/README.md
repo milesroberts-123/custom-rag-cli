@@ -59,6 +59,7 @@ Path to the sample sheet. Default: `config/samples.tsv`.
 | `exposure_branch` | `PECO:0001001` | Root of the plant exposure branch. |
 | `study_branch` | `PECO:0007231` | Root of the plant study condition branch. |
 | `growth_system_root` | `PECO:0007147` | Root of growth-medium exposure terms used for `growth_system_*` columns. |
+| `growth_system_extra_roots` | `[PECO:0007128, PECO:0007175]` | Additional exposure subtrees (photoperiod/day length, temperature regime) that also populate `growth_system_*`; the terms remain exposure annotations too. |
 
 ## `paper`
 
@@ -110,8 +111,7 @@ SRA attributes. It does not use the paper. Other RNA types are written to
 | `exposure_retrieval_score` | `0.55` | Flag exposure calls with a lower top retrieval score. |
 | `study_confidence` | `0.6` | Flag study-condition calls below this confidence. |
 | `rna_type_confidence` | `0.6` | Flag included RNA-type calls below this confidence. |
-| `flag_missing_paper` | `true` | Flag projects without a linked paper. |
-| `flag_low_confidence_paper` | `true` | Flag abstract-only or low-confidence paper summaries. |
+| `flag_missing_paper` | *(removed)* | Paper availability no longer triggers review; see `has_paper` column. |
 | `athrdb_crosscheck` | `true` | Flag review when AthRDB curation disagrees with the tissue/germplasm labels. |
 
 ## `paper`

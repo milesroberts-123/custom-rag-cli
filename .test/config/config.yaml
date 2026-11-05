@@ -73,8 +73,6 @@ review:
   exposure_retrieval_score: 0.55
   study_confidence: 0.6
   rna_type_confidence: 0.6
-  flag_missing_paper: true
-  flag_low_confidence_paper: true
 
 models:
   rna_type_backend: rules

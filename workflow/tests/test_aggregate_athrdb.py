@@ -23,8 +23,6 @@ def _review():
         "exposure_retrieval_score": 0.55,
         "study_confidence": 0.6,
         "rna_type_confidence": 0.6,
-        "flag_missing_paper": True,
-        "flag_low_confidence_paper": True,
         "athrdb_crosscheck": True,
     }
 
@@ -35,7 +33,6 @@ def _reasons(athrdb, tissue=None, germplasm=None, review=None):
         germplasm or _germplasm("natural_accession"),
         {"terms": [], "other": False},
         {"label": "in vitro"},
-        {"has_paper": True},
         {"confidence": 0.9},
         athrdb,
         review or _review(),
