@@ -140,18 +140,17 @@ germplasm:
     - polyploid
     - aneuploid
     - unknown
-  # Structured fields the rules layer may read. Study abstracts and sample
-  # names are model evidence only; matching them produced false
-  # natural_accession calls (e.g. an accession-shaped token inside an ENA
-  # submitter ID for a transgenic library).
+  # Structured fields the rules layer may read. Study abstracts, sample
+  # names, library names, and experiment titles are model evidence only:
+  # matching them produced false natural_accession calls (an accession-shaped
+  # token inside an ENA submitter ID), 36/42 false transgenic calls, and all
+  # 17 false cell_culture calls in window 2.
   rule_attribute_keys:
     - genotype
     - genotype/variation
     - ecotype
     - cultivar
     - strain
-    - library name
-    - experiment title
   attribute_keys:
     - genotype
     - genotype/variation
@@ -228,6 +227,9 @@ germplasm:
       - '\bknock-out\b'
       - '\bknockdown\b'
       - '\binsertion\b'
+      - '\bT-DNA\b'
+      - '\bCRISPR\b'
+      - '\bCas9\b'
       - '\bEMS\b'
       - '\bpoint mutation\b'
       - '\bdeletion\b'
@@ -241,9 +243,6 @@ germplasm:
       - '\bCFP\b'
       - '\bRNAi\b'
       - '\bamiR\w*'
-      - '\bCRISPR\b'
-      - '\bCas9\b'
-      - '\bT-DNA\b'
       - '\boverexpression\b'
       - '\bover-expression\b'
       - '\bcomplementation\b'
@@ -307,11 +306,11 @@ rna_type:
   min_confidence: 0.6
 
 review:
-  tissue_confidence: 0.6
-  germplasm_confidence: 0.6
+  tissue_confidence: 0.5
+  germplasm_confidence: 0.5
   exposure_retrieval_score: 0.55
-  study_confidence: 0.6
-  rna_type_confidence: 0.6
+  study_confidence: 0.5
+  rna_type_confidence: 0.5
   # Compare AthRDB curation against the model labels after labeling (the
   # labelers themselves do not read AthRDB) and flag disagreements for review.
   athrdb_crosscheck: true

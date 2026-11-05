@@ -106,11 +106,11 @@ SRA attributes. It does not use the paper. Other RNA types are written to
 
 | Key | Default | Description |
 |---|---|---|
-| `tissue_confidence` | `0.6` | Flag tissue calls below this confidence. |
-| `germplasm_confidence` | `0.6` | Flag germplasm calls below this confidence. |
+| `tissue_confidence` | `0.5` | Flag tissue calls below this confidence. |
+| `germplasm_confidence` | `0.5` | Flag germplasm calls below this confidence. |
 | `exposure_retrieval_score` | `0.55` | Flag exposure calls with a lower top retrieval score. |
-| `study_confidence` | `0.6` | Flag study-condition calls below this confidence. |
-| `rna_type_confidence` | `0.6` | Flag included RNA-type calls below this confidence. |
+| `study_confidence` | `0.5` | Flag study-condition calls below this confidence. |
+| `rna_type_confidence` | `0.5` | Flag included RNA-type calls below this confidence. |
 | `flag_missing_paper` | *(removed)* | Paper availability no longer triggers review; see `has_paper` column. |
 | `athrdb_crosscheck` | `true` | Flag review when AthRDB curation disagrees with the tissue/germplasm labels. |
 

@@ -39,8 +39,6 @@ GERM_RULE_KEYS = [
     "ecotype",
     "cultivar",
     "strain",
-    "library name",
-    "experiment title",
 ]
 
 
@@ -110,7 +108,10 @@ def test_tissue_only_free_text_abstains():
 # --- germplasm ---
 
 
-def test_germplasm_accession_token_in_submitter_id_ignored():
+def test_germplasm_transgene_in_library_name_abstains_to_model():
+    # Library names carry transgene signals, but the rules layer must not
+    # read them: window 2's false transgenic calls came from title/library
+    # matching. The model sees these lines and decides.
     values = [
         "sra_Submitter Id: ena-SAMPLE-TAB-24-11-2022",
         "library_name: T3-pUBQ-MORC1-FLAG-mail1-1-rep3",
@@ -118,7 +119,38 @@ def test_germplasm_accession_token_in_submitter_id_ignored():
     category, _, _ = germ._rule_label(
         values, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
     )
-    assert category == "transgenic"
+    assert category is None
+
+
+def test_germplasm_t_dna_in_genotype_is_mutant():
+    # T-DNA insertion lines are knockouts (mutants), not transgenics.
+    values = ["sra_genotype: SALK_123456 (T-DNA insertion)", "ecotype: Col-0"]
+    patterns = {
+        "mutant": [r"\bSALK_\d+", r"\bT-DNA\b"],
+        "transgenic": [r"\b35S\b"],
+    }
+    category, evidence, _ = germ._rule_label(
+        values, GERM_ACCESSIONS, patterns, GERM_RULE_KEYS
+    )
+    assert category == "mutant"
+    assert "SALK_123456" in evidence
+
+
+def test_germplasm_evidence_quotes_matching_lines_only():
+    # Evidence must cite the lines that matched, not unrelated structured
+    # lines: the old version quoted the first three structured lines for
+    # every hit, which cited T-DNA evidence that appeared nowhere.
+    values = [
+        "sra_genotype: wild type Col-0",
+        "sra_genotype: atg5-1 knockout",
+    ]
+    patterns = {"mutant": [r"\bknockout\b"]}
+    category, evidence, _ = germ._rule_label(
+        values, GERM_ACCESSIONS, patterns, GERM_RULE_KEYS
+    )
+    assert category == "mutant"
+    assert "atg5-1 knockout" in evidence
+    assert "wild type" not in evidence
 
 
 def test_germplasm_pattern_only_in_abstract_abstains():

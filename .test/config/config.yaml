@@ -68,11 +68,11 @@ rna_type:
   min_confidence: 0.6
 
 review:
-  tissue_confidence: 0.6
-  germplasm_confidence: 0.6
+  tissue_confidence: 0.5
+  germplasm_confidence: 0.5
   exposure_retrieval_score: 0.55
-  study_confidence: 0.6
-  rna_type_confidence: 0.6
+  study_confidence: 0.5
+  rna_type_confidence: 0.5
 
 models:
   rna_type_backend: rules

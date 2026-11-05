@@ -250,12 +250,12 @@ properties:
         type: number
         minimum: 0
         maximum: 1
-        default: 0.6
+        default: 0.5
       germplasm_confidence:
         type: number
         minimum: 0
         maximum: 1
-        default: 0.6
+        default: 0.5
       exposure_retrieval_score:
         type: number
         minimum: 0
@@ -265,12 +265,12 @@ properties:
         type: number
         minimum: 0
         maximum: 1
-        default: 0.6
+        default: 0.5
       rna_type_confidence:
         type: number
         minimum: 0
         maximum: 1
-        default: 0.6
+        default: 0.5
       athrdb_crosscheck:
         type: boolean
         default: true

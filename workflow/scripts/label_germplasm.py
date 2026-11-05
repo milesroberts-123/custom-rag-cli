@@ -115,6 +115,18 @@ def _structured_values(values, rule_keys):
     return selected
 
 
+def _matched_lines(structured, expressions):
+    """Lines that match at least one expression (evidence for a category)."""
+    return [
+        line
+        for line in structured
+        if any(
+            re.search(expression, line, flags=re.IGNORECASE)
+            for expression in expressions
+        )
+    ]
+
+
 def _rule_label(values, accessions, patterns, rule_keys):
     structured = _structured_values(values, rule_keys)
     if not structured:
@@ -129,8 +141,8 @@ def _rule_label(values, accessions, patterns, rule_keys):
         if category is None:
             category = sorted(hits)[0]
         evidence = "; ".join(
-            f"{name}: {', '.join(structured[:3])}"
-            for name, values in sorted(hits.items())
+            f"{name}: {', '.join(_matched_lines(structured, expressions)[:3])}"
+            for name, expressions in hits.items()
         )
         return category, evidence, "rules"
 
