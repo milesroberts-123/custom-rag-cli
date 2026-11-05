@@ -3,7 +3,10 @@
 #SBATCH -A co_moilab
 #SBATCH -p savio4_gpu
 #SBATCH --qos moilab_gpu4_normal
-#SBATCH --gres=gpu:H200:1
+# The server job takes all four H200s on the node so Ollama can split the
+# 27B model across them and serve more concurrent requests. 4-GPU jobs wait
+# longer in the queue; keep windows at ~1000 runs so the 12 h limit is safe.
+#SBATCH --gres=gpu:H200:4
 #SBATCH --cpus-per-gpu 32
 #SBATCH --time=12:00:00
 #SBATCH --output=.snakemake/slurm_logs/ollama-%j.out
@@ -22,7 +25,10 @@ export OLLAMA_MAX_LOADED_MODELS=2
 # prefill cost) and makes room for more parallel slots. Requests are capped
 # with num_predict on the client side.
 export OLLAMA_CONTEXT_LENGTH=16384
-export OLLAMA_NUM_PARALLEL=8
+# All four GPUs split the model; the load is many small concurrent requests,
+# so more slots convert directly into throughput (classify was the bottleneck
+# at ~440 runs/h with 8 slots on one GPU).
+export OLLAMA_NUM_PARALLEL=32
 
 SERVER_FILE="${1:?usage: ollama-server.sbatch <server-file>}"
 mkdir -p "$(dirname "$SERVER_FILE")" .snakemake/slurm_logs

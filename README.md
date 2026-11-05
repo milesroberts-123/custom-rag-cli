@@ -95,7 +95,7 @@ a fixed order of non-overlapping windows:
       --config samples=config/samples_all.tsv batch_size=5000 batch_index=1
   ```
 
-  Each invocation starts its own H200 Ollama server job and cancels it on
+  Each invocation starts its own four-H200 Ollama server job and cancels it on
   exit, so a batch sequence is just this command repeated with an increasing
   `batch_index`. The conda environments and PECO index are built once and
   reused. Window sizing rule of thumb: ATHRDB pacing (~2–2.5 s per new run)
@@ -130,7 +130,12 @@ for short JSON answers — while paper summaries keep thinking enabled via
 latency is worth the extraction quality. The server job runs with
 `OLLAMA_CONTEXT_LENGTH=16384` (prompts are ≤8k tokens; the model's baked-in
 262144 context would otherwise preallocate ~16x more KV memory) and
-`OLLAMA_NUM_PARALLEL=8` so several label jobs can be served at once.
+`OLLAMA_NUM_PARALLEL=32` so several label jobs can be served at once. The
+server job requests all four H200s on the node; Ollama splits the model's
+layers across them, which multiplies the KV budget and therefore the number
+of concurrent requests the server can hold (per-token latency does not
+improve). A 4-GPU job waits longer in the queue, so keep windows around
+1,000 runs.
 
 Tev1 requires Ollama 0.35 or newer. This workflow targets Ollama 0.40.11.
 
@@ -371,11 +376,11 @@ cd /global/home/users/$USER/moi_lab_projects/custom-rag-cli
 bash workflow/savio/run.sh
 ```
 
-`run.sh` submits one H200 job that serves Ollama on `0.0.0.0:11434`, waits for
-it to warm `qwen3.8`, checks that the login node can reach it, then runs
-Snakemake with the default Slurm profile (`workflow/profiles/default`). Rules
-run on `savio4_htc` and connect to the model server over the network. `HF_HOME`
-and the conda prefix are redirected to scratch.
+`run.sh` submits one four-H200 job that serves Ollama on `0.0.0.0:11434`,
+waits for it to warm `qwen3.8`, checks that the login node can reach it, then
+runs Snakemake with the default Slurm profile (`workflow/profiles/default`).
+Rules run on `savio4_htc` and connect to the model server over the network.
+`HF_HOME` and the conda prefix are redirected to scratch.
 
 If compute-node networking is blocked, `run.sh` exits with a clear error. In
 that case the fallback is per-rule GPU jobs, which reload the models per job.
