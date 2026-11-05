@@ -222,3 +222,8 @@ __marimo__/
 !/resources/README.md
 /.test/results/
 /.test/resources/
+
+# BEGIN oh-my-opencode-slim worktrees
+.slim/worktrees/
+.slim/worktrees.json
+# END oh-my-opencode-slim worktrees
