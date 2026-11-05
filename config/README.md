@@ -177,11 +177,15 @@ the Savio run.sh recipe.
 Each `*_params` key is passed to the corresponding model request as Ollama
 runtime options. The defaults set `temperature: 0` for deterministic calls.
 
-Chat requests go to the native `/api/chat` endpoint with `think: false`,
-JSON mode, and a 1024-token generation cap (2048 for paper summaries);
-single-choice chat fallbacks and exposure share the default. Transient
-connection failures, timeouts, and HTTP 429/5xx are retried three times
-with backoff.
+Chat requests go to the native `/api/chat` endpoint with JSON mode and a
+1024-token generation cap (2048 for paper summaries); single-choice chat
+fallbacks and exposure share the default. Thinking is off by default and
+opted into per step via a `think: true` entry in the step's `*_params` key
+(it is sent as a top-level request field, not a runtime option): the
+per-run label calls stay non-thinking for speed, while `summary_params`
+sets `think: true` because summaries run once per BioProject and benefit
+from the reasoning pass. Transient connection failures, timeouts, and HTTP
+429/5xx are retried three times with backoff.
 
 ## `ollama`
 

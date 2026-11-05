@@ -114,10 +114,13 @@ Each decision step falls back to the chat model if the decision endpoint
 fails. `config/config.yaml` sets `ollama.server_url` and `ollama.api_key`; the
 `OLLAMA_SERVER` and `OLLAMA_API_KEY` environment variables override them.
 
-Chat calls use Ollama's native `/api/chat` endpoint with `think: false`
-(thinking traces are pure latency for short JSON answers), JSON mode, and a
-generation cap of 1024 tokens (2048 for paper summaries). The server job runs
-with `OLLAMA_CONTEXT_LENGTH=16384` (prompts are ≤8k tokens; the model's baked-in
+Chat calls use Ollama's native `/api/chat` endpoint with JSON mode and a
+generation cap of 1024 tokens (2048 for paper summaries). The per-run label
+calls disable thinking (`think: false`) — reasoning traces are pure latency
+for short JSON answers — while paper summaries keep thinking enabled via
+`summary_params: {think: true}`: they run once per BioProject, so the
+latency is worth the extraction quality. The server job runs with
+`OLLAMA_CONTEXT_LENGTH=16384` (prompts are ≤8k tokens; the model's baked-in
 262144 context would otherwise preallocate ~16x more KV memory) and
 `OLLAMA_NUM_PARALLEL=8` so several label jobs can be served at once.
 

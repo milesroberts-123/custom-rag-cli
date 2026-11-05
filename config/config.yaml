@@ -286,6 +286,10 @@ models:
     temperature: 0
   summary_params:
     temperature: 0
+    # Summaries run once per BioProject (thousands of times fewer calls than
+    # the per-run labelers), so the latency of a reasoning trace is worth the
+    # extraction quality there; the per-run label calls stay non-thinking.
+    think: true
 
 ollama:
   server_url: http://127.0.0.1:11434

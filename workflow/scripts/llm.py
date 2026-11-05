@@ -67,21 +67,25 @@ def chat_json(
 ):
     """Send a chat request that must return a JSON object.
 
-    Thinking is disabled, JSON mode is forced, and generation is capped at
-    ``max_tokens``. ``model_params`` maps to Ollama runtime ``options``
-    (e.g. ``temperature``). Transient failures (connection loss, timeouts,
-    HTTP 429/5xx from a busy shared server) are retried with backoff; JSON
-    validation failures still propagate so callers can run their own
-    correction loops.
+    JSON mode is forced and generation is capped at ``max_tokens``. Thinking
+    is disabled by default; a step opts in with ``{"think": true}`` in its
+    model params, which this function pulls out and sends as the top-level
+    ``think`` field (it is not an Ollama runtime option). Everything else in
+    ``model_params`` maps to runtime ``options`` (e.g. ``temperature``).
+    Transient failures (connection loss, timeouts, HTTP 429/5xx from a busy
+    shared server) are retried with backoff; JSON validation failures still
+    propagate so callers can run their own correction loops.
     """
-    options = dict(model_params or {})
+    params = dict(model_params or {})
+    think = bool(params.pop("think", False))
+    options = dict(params)
     options["num_predict"] = max_tokens
     payload = {
         "model": model,
         "messages": messages,
         "stream": False,
         "format": "json",
-        "think": False,
+        "think": think,
         "options": options,
     }
     headers = {"Authorization": f"Bearer {_key(api_key)}"}

@@ -96,7 +96,8 @@ models:
   germplasm_params: {}
   exposure_params: {}
   study_params: {}
-  summary_params: {}
+  summary_params:
+    think: true
 
 ollama:
   server_url: http://127.0.0.1:11434

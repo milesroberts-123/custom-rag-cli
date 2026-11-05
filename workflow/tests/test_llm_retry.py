@@ -68,6 +68,27 @@ def test_chat_json_custom_max_tokens(monkeypatch):
     assert payloads[0]["options"]["num_predict"] == 2048
 
 
+def test_chat_json_think_opt_in(monkeypatch):
+    payloads = []
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        payloads.append(json)
+        return _Response()
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    llm.chat_json(
+        "http://x",
+        "k",
+        "m",
+        _messages(),
+        model_params={"temperature": 0, "think": True},
+    )
+    payload = payloads[0]
+    assert payload["think"] is True
+    assert "think" not in payload["options"]
+    assert payload["options"]["temperature"] == 0
+
+
 def test_chat_json_retries_transient_timeouts(monkeypatch):
     calls = {"n": 0}
 
