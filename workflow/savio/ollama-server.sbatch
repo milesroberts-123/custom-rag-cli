@@ -56,6 +56,15 @@ if ! ollama list | grep -q '^qwen3.8'; then
     exit 1
 fi
 
+# The decision model drives classify/tissue/germplasm/study. A missing
+# decision model used to fail silently (every /v1/systemone call 404s and the
+# labelers fall back to chat), so check it up front.
+if ! ollama list | awk '{print $1}' | grep -qx 'tev1:4b'; then
+    echo "tev1:4b is not pulled; run 'ollama pull tev1:4b' on a login node" >&2
+    echo "(decision calls would otherwise 404 and silently fall back to chat)" >&2
+    exit 1
+fi
+
 # Warm the generation model so the first real request is not a cold load.
 ollama run qwen3.8 "Reply with OK" >/dev/null
 

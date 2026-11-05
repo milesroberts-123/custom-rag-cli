@@ -9,6 +9,7 @@ from sentence_transformers import SentenceTransformer
 
 from evidence import evidence_lines
 from llm import chat_json
+from peco_utils import ancestor_map, prune_ancestors
 from skip import load_rna_type, write_skip
 
 SYSTEM = (
@@ -26,6 +27,12 @@ Select the PECO plant exposure term(s) that describe the experimental
 conditions of this sample. Use only term IDs from the candidate list.
 
 Annotation guidance:
+- Exposure means an external treatment or environmental condition (pathogen,
+  chemical, light, temperature, water, or nutrient treatment). Genotype,
+  developmental stage, sampling time point, and study setting are NOT
+  exposures and must not be labeled.
+- Prefer the most specific candidate term. Do not select a parent term when a
+  more specific candidate covers the same condition.
 - control exposure: long-day (>= 12 h light, not constant), 18-26 C, with no
   explicit stress or nutrient limitation.
 - high temperature: >= 27 C; cold: <= 17 C; short day: < 12 h light.
@@ -146,7 +153,7 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_exposure")
 
 
-def _label_one(run, inputs, params, model, terms, synonyms, embeddings):
+def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestors):
     """Label one run's exposure terms; returns the result dict or None."""
     rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
@@ -215,6 +222,8 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings):
     if selected is None:
         raise RuntimeError(f"could not label {run}: {last_error}")
 
+    selected, pruned = prune_ancestors(selected, ancestors)
+
     result = {
         "run": run,
         "layer": "exposure",
@@ -224,17 +233,19 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings):
         "other": other,
         "suggested_label": suggested_label,
         "max_retrieval_score": round(max_score, 4),
+        "pruned_ancestors": pruned,
         "terms": selected,
         "query": query_text,
     }
 
     LOGGER.info(
-        "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s)",
+        "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s, pruned=%d)",
         run,
         len(selected),
         no_condition,
         other,
         max_score,
+        len(pruned),
     )
     output = Path(inputs["output"])
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -247,6 +258,7 @@ def main():
     terms, synonyms, embeddings = _load_index(snakemake.input.index)
     # The encoder is the expensive per-job constant; load it once per chunk.
     model = SentenceTransformer(params["embed_model"])
+    ancestors = ancestor_map(terms)
     for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
         _label_one(
             run,
@@ -262,6 +274,7 @@ def main():
             terms,
             synonyms,
             embeddings,
+            ancestors,
         )
 
     marker = Path(snakemake.output[0])

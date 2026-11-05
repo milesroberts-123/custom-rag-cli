@@ -78,6 +78,20 @@ def _exclusion_reason(rna_type):
     return f"rna_type_{category}_not_accepted"
 
 
+def _tissues_agree(curated, model):
+    """Loose tissue comparison: AthRDB uses a finer vocabulary than ours."""
+    curated, model = curated.lower().strip(), model.lower().strip()
+    if curated == model:
+        return True
+    synonyms = {
+        "rosette": "leaf",
+        "rosette leaf": "leaf",
+        "leaf rosette": "leaf",
+        "rosette leaves": "leaf",
+    }
+    return synonyms.get(curated) == model or synonyms.get(model) == curated
+
+
 def _athrdb_crosscheck(athrdb, tissue, germplasm):
     """Compare AthRDB curation against the model labels; True when they clash.
 
@@ -94,7 +108,7 @@ def _athrdb_crosscheck(athrdb, tissue, germplasm):
         curated_tissue
         and model_tissue
         and model_tissue != "OTHER"
-        and curated_tissue.lower() != model_tissue.lower()
+        and not _tissues_agree(curated_tissue, model_tissue)
     ):
         return True
 

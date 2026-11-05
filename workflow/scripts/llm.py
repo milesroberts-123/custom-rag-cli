@@ -33,7 +33,15 @@ def _key(api_key):
 def systemone(
     server_url, api_key, model, state, questions, keep_alive="30m", timeout=120
 ):
-    """Ask Ollama's decision endpoint (/v1/systemone) one or more questions."""
+    """Ask Ollama's decision endpoint (/v1/systemone) one or more questions.
+
+    A 404 here almost always means the decision model is missing on the server
+    (Ollama returns ``{"error": "model 'tev1:4b' not found"}``). That failure
+    used to be silent because every caller falls back to the chat model, so an
+    entire window could run with the decision layer dead. Raise a loud,
+    actionable error instead; callers still catch it and fall back, but the
+    job log now says exactly what to fix.
+    """
     payload = {
         "model": model,
         "state": state,
@@ -46,6 +54,18 @@ def systemone(
         headers={"Authorization": f"Bearer {_key(api_key)}"},
         timeout=timeout,
     )
+    if response.status_code == 404:
+        try:
+            detail = response.json().get("error", "")
+        except ValueError:
+            detail = response.text[:200]
+        raise RuntimeError(
+            f"decision model {model!r} is unavailable at "
+            f"{_server(server_url)}/v1/systemone (HTTP 404: {detail}). "
+            f"Pull it on the model-server node (`ollama pull {model}`) and "
+            "verify with `ollama list`; labels fall back to the chat model "
+            "until it is available."
+        )
     response.raise_for_status()
     return response.json()
 

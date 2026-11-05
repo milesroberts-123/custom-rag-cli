@@ -127,6 +127,25 @@ properties:
       other_description:
         type: string
         default: None of the listed categories fits.
+      rule_attribute_keys:
+        type: array
+        items:
+          type: string
+        default:
+          - tissue
+          - organism part
+          - organ
+          - tissue type
+          - sample tissue
+          - cell type
+          - plant structure
+          - plant anatomy
+      po_terms:
+        type: object
+        additionalProperties:
+          type: string
+        default: {}
+        description: Plant Ontology ID to tissue category map for structured ENA fields
     required:
       - categories
   germplasm:
@@ -137,6 +156,18 @@ properties:
         items:
           type: string
         minItems: 1
+      rule_attribute_keys:
+        type: array
+        items:
+          type: string
+        default:
+          - genotype
+          - genotype/variation
+          - ecotype
+          - cultivar
+          - strain
+          - library name
+          - experiment title
       attribute_keys:
         type: array
         items:

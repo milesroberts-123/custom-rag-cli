@@ -61,25 +61,57 @@ tissue:
       - shoot
       - stem
       - hypocotyl
+      - stems
     root:
       - root
+      - roots
     leaf:
       - leaf
+      - leaves
       - rosette
       - cotyledon
+      - cotyledons
     seed:
       - seed
+      - seeds
       - embryo
+      - embryos
     flower:
       - flower
+      - flowers
       - floral
       - inflorescence
       - bud
+      - buds
       - pollen
     fruit:
       - fruit
       - silique
+      - siliques
       - seed pod
+  # Structured fields the rules layer may read. Free text (study titles,
+  # abstracts) is model evidence only: keyword hits there produced most of the
+  # wrong rule labels in the first window.
+  rule_attribute_keys:
+    - tissue
+    - organism part
+    - organ
+    - tissue type
+    - sample tissue
+    - cell type
+    - plant structure
+    - plant anatomy
+  # Plant Ontology IDs used by ENA in `plant structure` fields. These are
+  # high-precision structured evidence, so they take precedence over keywords.
+  po_terms:
+    "PO:0000003": whole_plant
+    "PO:0009006": shoot
+    "PO:0009047": shoot
+    "PO:0009005": root
+    "PO:0025034": leaf
+    "PO:0009010": seed
+    "PO:0009046": flower
+    "PO:0009001": fruit
   attribute_keys:
     - tissue
     - organism part
@@ -101,6 +133,18 @@ germplasm:
     - polyploid
     - aneuploid
     - unknown
+  # Structured fields the rules layer may read. Study abstracts and sample
+  # names are model evidence only; matching them produced false
+  # natural_accession calls (e.g. an accession-shaped token inside an ENA
+  # submitter ID for a transgenic library).
+  rule_attribute_keys:
+    - genotype
+    - genotype/variation
+    - ecotype
+    - cultivar
+    - strain
+    - library name
+    - experiment title
   attribute_keys:
     - genotype
     - genotype/variation

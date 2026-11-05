@@ -22,6 +22,8 @@ rule label_tissue:
         prjnas=chunk_prjnas,
         categories=config["tissue"]["categories"],
         keywords=config["tissue"]["keywords"],
+        rule_attribute_keys=config["tissue"]["rule_attribute_keys"],
+        po_terms=config["tissue"]["po_terms"],
         attribute_keys=config["tissue"]["attribute_keys"],
         other_description=config["tissue"]["other_description"],
     script:
@@ -45,6 +47,7 @@ rule label_germplasm:
         prjnas=chunk_prjnas,
         categories=config["germplasm"]["categories"],
         attribute_keys=config["germplasm"]["attribute_keys"],
+        rule_attribute_keys=config["germplasm"]["rule_attribute_keys"],
         natural_accessions=config["germplasm"]["natural_accessions"],
         patterns=config["germplasm"]["patterns"],
         descriptions=config["germplasm"]["descriptions"],

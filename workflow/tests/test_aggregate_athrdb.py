@@ -66,6 +66,26 @@ def test_matching_tissue_does_not_flag():
     assert "athrdb_disagreement" not in reasons
 
 
+def test_rosette_leaf_synonym_does_not_flag():
+    athrdb = {
+        "athrdb_hit": True,
+        "athrdb_tissue": "rosette leaf",
+        "athrdb_genotype": "wild type",
+    }
+    reasons = _reasons(athrdb, tissue=_tissue("leaf"))
+    assert "athrdb_disagreement" not in reasons
+
+
+def test_bare_rosette_synonym_does_not_flag():
+    athrdb = {
+        "athrdb_hit": True,
+        "athrdb_tissue": "rosette",
+        "athrdb_genotype": "wild type",
+    }
+    reasons = _reasons(athrdb, tissue=_tissue("leaf"))
+    assert "athrdb_disagreement" not in reasons
+
+
 def test_mutant_genotype_vs_natural_label_flags_review():
     athrdb = {
         "athrdb_hit": True,

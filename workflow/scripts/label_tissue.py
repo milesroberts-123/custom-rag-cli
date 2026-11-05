@@ -30,8 +30,50 @@ Return JSON: {{"category": "<allowed category or OTHER>", "evidence": "short rea
 """
 
 
-def _rules_category(values, categories, keywords):
-    text = " | ".join(values)
+def _structured_values(values, rule_keys):
+    """Keep only lines whose attribute name is a structured tissue field.
+
+    Free text (study titles, abstracts) stays available to the model but must
+    not drive the rules layer: in the first window, 69% of rule labels came
+    from such text rather than a tissue/organ-part field.
+    """
+    keys = [key.lower().replace("_", " ") for key in rule_keys]
+    selected = []
+    for line in values:
+        name = line.partition(":")[0].strip().lower().replace("_", " ")
+        if name.startswith("sra "):
+            name = name[4:]
+        if any(key in name for key in keys):
+            selected.append(line)
+    return selected
+
+
+def _po_category(values, po_terms):
+    """Resolve Plant Ontology IDs from structured ENA fields to a category."""
+    text = " ".join(values).upper()
+    hits = {
+        category
+        for po_id, category in (po_terms or {}).items()
+        if re.search(rf"{re.escape(po_id.upper())}(?!\d)", text)
+    }
+    return hits.pop() if len(hits) == 1 else None
+
+
+def _rules_category(values, categories, keywords, po_terms=None, rule_keys=None):
+    """Return a category from structured evidence only.
+
+    Plant Ontology IDs take precedence; keyword matching then runs on
+    structured attribute lines. Multi-category evidence abstains.
+    """
+    structured = _structured_values(values, rule_keys or [])
+    if not structured:
+        return None
+
+    category = _po_category(structured, po_terms)
+    if category in categories:
+        return category
+
+    text = " | ".join(structured)
     hits = []
     for category in categories:
         for keyword in keywords.get(category, []):
@@ -133,10 +175,16 @@ def _label_one(run, inputs, params):
 
     confidence = None
     probabilities = None
-    category = _rules_category(values, categories, keywords)
+    category = _rules_category(
+        values,
+        categories,
+        keywords,
+        dict(params["po_terms"]),
+        list(params["rule_attribute_keys"]),
+    )
     if category is not None:
         source = "rules"
-        evidence = "matched configured tissue keyword"
+        evidence = "matched structured tissue evidence (Plant Ontology or keyword)"
     elif not values:
         category = OTHER
         source = "missing_attributes"

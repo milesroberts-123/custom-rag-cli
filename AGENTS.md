@@ -95,6 +95,15 @@ lint/format/test checks in CI.
   50), not one job per run: per-run output paths are unchanged, but the
   interpreter and sentence-transformer encoder load once per chunk. A failed
   chunk redoes up to `label_chunk_size` runs.
+- Tissue and germplasm rules read structured attribute fields only
+  (`tissue.rule_attribute_keys` / `germplasm.rule_attribute_keys`); study
+  titles/abstracts are model evidence, never rule evidence. ENA `plant
+  structure` values carry Plant Ontology IDs that map via `tissue.po_terms`
+  (e.g. `PO:0025034` → leaf). Do not loosen these back to full-text matching —
+  it produced the false natural-accession labels in the first window.
+- The Ollama server job checks both `qwen3.8` and `tev1:4b` at startup; a
+  missing decision model aborts the job instead of silently 404ing every
+  `/v1/systemone` call and falling back to chat for the whole window.
 
 ## Review app
 

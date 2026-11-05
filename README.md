@@ -260,6 +260,17 @@ The paper's categories, with flower and fruit separated:
 
 `whole_plant`, `shoot`, `root`, `leaf`, `seed`, `flower`, `fruit`, plus `OTHER`.
 
+The tissue rules layer reads **structured fields only** (`tissue`,
+`organism part`, `plant structure`, …): Plant Ontology IDs from ENA
+(`PO:0025034` → leaf, via `tissue.po_terms`) take precedence, then configured
+keywords (including plurals such as `leaves` and the `rosette` → leaf
+synonym). Free text in study titles/abstracts is model evidence only — keyword
+hits there were the main source of wrong rule labels in the first window. The
+germplasm rules layer has the same restriction (`germplasm.rule_attribute_keys`:
+genotype, ecotype, cultivar, strain, library name, experiment title), which
+prevents accession-shaped tokens in ENA submitter IDs from labeling transgenic
+libraries as natural accessions.
+
 ## Output
 
 `results/labels.tsv` contains only mRNA-eligible runs:

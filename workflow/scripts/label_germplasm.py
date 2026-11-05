@@ -97,8 +97,30 @@ def _natural_supported(values, accessions):
     return True
 
 
-def _rule_label(values, accessions, patterns):
-    text = "\n".join(values)
+def _structured_values(values, rule_keys):
+    """Keep only lines whose attribute name is a structured germplasm field.
+
+    Study abstracts, sample names, and submitter IDs stay available to the
+    model but must not drive the rules layer: an accession-shaped token in an
+    ENA submitter ID once labeled a transgenic library as a natural accession.
+    """
+    keys = [key.lower().replace("_", " ") for key in rule_keys]
+    selected = []
+    for line in values:
+        name = line.partition(":")[0].strip().lower().replace("_", " ")
+        if name.startswith("sra "):
+            name = name[4:]
+        if any(key in name for key in keys):
+            selected.append(line)
+    return selected
+
+
+def _rule_label(values, accessions, patterns, rule_keys):
+    structured = _structured_values(values, rule_keys)
+    if not structured:
+        return None, "", ""
+
+    text = "\n".join(structured)
     hits = _pattern_hits(text, patterns)
     natural = _natural_hits(text, accessions)
 
@@ -107,7 +129,8 @@ def _rule_label(values, accessions, patterns):
         if category is None:
             category = sorted(hits)[0]
         evidence = "; ".join(
-            f"{name}: {', '.join(values[:3])}" for name, values in sorted(hits.items())
+            f"{name}: {', '.join(structured[:3])}"
+            for name, values in sorted(hits.items())
         )
         return category, evidence, "rules"
 
@@ -204,6 +227,7 @@ def _label_one(run, inputs, params):
             values,
             list(params["natural_accessions"]),
             dict(params["patterns"]),
+            list(params["rule_attribute_keys"]),
         )
 
         if category is None:
