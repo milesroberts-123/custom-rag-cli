@@ -80,9 +80,11 @@ lint/format/test checks in CI.
   tissue/germplasm labelers (that gated whole windows behind the serial
   fetch); aggregate cross-checks it against the labels and flags
   `athrdb_disagreement` for review instead.
-- ENA-origin accessions (ERR/SAMEA/PRJEB) work via NCBI mirrors, except
-  BioSample: `SAMEA…` records fall back to ENA's XML API
-  (`fetch_source: "ena"` in the stored record). Both-misses fail the window.
+- ENA-origin accessions (ERR/SAMEA/PRJEB) work via NCBI mirrors, with ENA
+  fallbacks: `SAMEA…` BioSample records come from ENA's XML API, and runs that
+  NCBI `efetch db=sra` silently omits are refetched from ENA `filereport`
+  (`fetch_source: "ena"`). A run missing from both mirrors is stored as a
+  stub (`fetch_source: "missing"`), never a window failure.
   ATHRDB has no coverage for ENA-only libraries (no GEO record); expect
   `no_geo_record` stubs there.
 - Window batching (`batch_size`/`batch_index`) slices the sheet per

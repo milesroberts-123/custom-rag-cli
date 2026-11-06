@@ -1,11 +1,30 @@
 """Fetch SRA run metadata and store compact per-run JSON records."""
 
+import csv
+import io
 import json
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+from http_utils import get
 from ncbi import fetch_efetch, strip_namespaces
+
+ENA_FILEREPORT = "https://www.ebi.ac.uk/ena/portal/api/filereport"
+ENA_FIELDS = (
+    "run_accession",
+    "experiment_accession",
+    "sample_accession",
+    "study_accession",
+    "library_strategy",
+    "library_selection",
+    "library_source",
+    "library_name",
+    "library_construction_protocol",
+    "experiment_title",
+    "study_title",
+    "sample_title",
+)
 
 
 def _text(element, path):
@@ -76,8 +95,55 @@ def _parse(xml_bytes):
         for run in package.findall(".//RUN"):
             accession = run.get("accession")
             if accession:
-                records[accession] = {**record, "run": accession}
+                records[accession] = {
+                    **record,
+                    "run": accession,
+                    "fetch_source": "ncbi",
+                }
     return records
+
+
+def _ena_record(accession, timeout=60):
+    """Fetch one run's metadata from ENA when NCBI's mirror omits it.
+
+    NCBI efetch db=sra silently drops a few ENA-origin runs from large batches
+    (window 1 failed on ERR11343449/ERR11343489 this way) even though both
+    esearch and ENA have them. Returns None when ENA has no record either.
+    """
+    response = get(
+        ENA_FILEREPORT,
+        params={
+            "accession": accession,
+            "result": "read_run",
+            "fields": ",".join(ENA_FIELDS),
+            "format": "tsv",
+        },
+        timeout=timeout,
+    )
+    if response is None or not response.ok:
+        return None
+    rows = list(csv.DictReader(io.StringIO(response.text), delimiter="\t"))
+    if not rows:
+        return None
+    row = rows[0]
+    return {
+        "run": accession,
+        "experiment_accession": row.get("experiment_accession", ""),
+        "experiment_title": row.get("experiment_title", ""),
+        "library_name": row.get("library_name", ""),
+        "library_strategy": row.get("library_strategy", ""),
+        "library_selection": row.get("library_selection", ""),
+        "library_source": row.get("library_source", ""),
+        "library_construction_protocol": row.get("library_construction_protocol", ""),
+        "sample_accession": row.get("sample_accession", ""),
+        "sample_name": row.get("sample_title", ""),
+        "study_accession": row.get("study_accession", ""),
+        "study_title": row.get("study_title", ""),
+        "study_abstract": "",
+        "sample_attributes": {},
+        "experiment_attributes": {},
+        "fetch_source": "ena",
+    }
 
 
 from script_logging import setup as _setup
@@ -136,9 +202,33 @@ def main():
 
     missing = [run for run, _ in todo if run not in records]
     if missing:
-        raise RuntimeError(
-            "NCBI returned no SRA record for: " + ", ".join(sorted(missing))
+        LOGGER.info(
+            "NCBI omitted %d run record(s); falling back to ENA: %s",
+            len(missing),
+            ", ".join(sorted(missing)),
         )
+    unresolved = []
+    for run in missing:
+        record = _ena_record(run)
+        if record is None:
+            unresolved.append(run)
+            continue
+        records[run] = record
+        LOGGER.info("%s: metadata from ENA fallback", run)
+
+    # A run that neither mirror returns must not fail the whole window: the
+    # window also carries thousands of other runs. Store a stub so RNA typing
+    # records it as unknown/not eligible and the sample shows up for review.
+    for run in unresolved:
+        LOGGER.warning("%s: no SRA record in NCBI or ENA; writing a stub", run)
+        records[run] = {
+            "run": run,
+            "fetch_source": "missing",
+            "sra_note": "no SRA record in the NCBI or ENA mirrors",
+            "library_strategy": "",
+            "library_selection": "",
+            "library_source": "",
+        }
 
     for run, path in todo:
         Path(path).parent.mkdir(parents=True, exist_ok=True)

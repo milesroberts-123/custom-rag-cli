@@ -56,3 +56,29 @@ def test_parse_sra_library_fields():
     assert record["sample_attributes"] == {"tissue": "leaf"}
     assert record["sample_name"] == "sample1"
     assert record["study_title"] == "Study title"
+
+
+def test_ena_fallback_record(monkeypatch):
+    class Response:
+        ok = True
+        text = (
+            "run_accession\texperiment_accession\tlibrary_strategy\t"
+            "library_selection\tlibrary_name\tstudy_accession\n"
+            "ERR1\tERX1\tRNA-Seq\tOligo-dT\tlibA\tPRJEB1\n"
+        )
+
+    monkeypatch.setattr(fetch_sra_metadata, "get", lambda *args, **kwargs: Response())
+    record = fetch_sra_metadata._ena_record("ERR1")
+    assert record["fetch_source"] == "ena"
+    assert record["library_strategy"] == "RNA-Seq"
+    assert record["library_selection"] == "Oligo-dT"
+    assert record["study_accession"] == "PRJEB1"
+
+
+def test_ena_fallback_missing_returns_none(monkeypatch):
+    class Response:
+        ok = True
+        text = "run_accession\n"
+
+    monkeypatch.setattr(fetch_sra_metadata, "get", lambda *args, **kwargs: Response())
+    assert fetch_sra_metadata._ena_record("ERR404") is None
