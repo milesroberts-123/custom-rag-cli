@@ -106,6 +106,10 @@ lint/format/test checks in CI.
 - The Ollama server job checks both `qwen3.8` and `tev1:4b` at startup; a
   missing decision model aborts the job instead of silently 404ing every
   `/v1/systemone` call and falling back to chat for the whole window.
+- The exposure prompt splits per-sample evidence from project-level context
+  (study abstract, paper conditions): terms must be grounded in per-sample
+  evidence, project text only disambiguates. This stops replicate noise like
+  window 3's `Warm_T_1/2/3` replicates receiving different term sets.
 
 ## Review app
 

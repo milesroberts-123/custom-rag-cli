@@ -57,6 +57,37 @@ def paper_lines(summary):
     return lines
 
 
+def exposure_evidence(biosample, sra, summary, max_abstract=800):
+    """Split exposure evidence into per-sample and project-level blocks.
+
+    The exposure labeler needs the split so the model cannot ground a term
+    solely in project-level text (study abstract, paper conditions): that
+    produced replicate noise in window 3, where identical-condition replicates
+    received different term sets drawn from the same abstract.
+    """
+    sample = attribute_lines(biosample.get("attributes", {}))
+    organism = biosample.get("organism")
+    if organism:
+        sample.append(f"organism: {organism}")
+    for key in ("experiment_title", "library_name", "sample_name"):
+        value = sra.get(key)
+        if value:
+            sample.append(f"{key}: {value}")
+    for name, value in sorted((sra.get("sample_attributes") or {}).items()):
+        if value:
+            sample.append(f"sra_{name}: {value}")
+
+    project = []
+    study_title = sra.get("study_title")
+    if study_title:
+        project.append(f"study_title: {study_title}")
+    abstract = sra.get("study_abstract")
+    if abstract:
+        project.append(f"study_abstract: {abstract[:max_abstract]}")
+    project.extend(paper_lines(summary))
+    return sample, project
+
+
 def evidence_lines(biosample, sra, summary, attribute_keys=None, max_abstract=800):
     """Combine and deduplicate evidence lines for one run."""
     lines = attribute_lines(biosample.get("attributes", {}), attribute_keys)

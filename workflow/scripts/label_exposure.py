@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from evidence import evidence_lines
+from evidence import evidence_lines, exposure_evidence
 from llm import chat_json
 from peco_utils import ancestor_map, prune_ancestors
 from skip import load_rna_type, write_skip
@@ -17,8 +17,11 @@ SYSTEM = (
     "Plant Experimental Conditions Ontology (PECO). Return only a JSON object."
 )
 
-PROMPT = """Sample and paper evidence:
-{evidence}
+PROMPT = """Per-sample evidence (this run only):
+{sample_evidence}
+
+Project-level context (shared by all runs in the project):
+{project_evidence}
 
 Candidate PECO plant exposure terms (ID | label | definition):
 {candidates}
@@ -27,6 +30,18 @@ Select the PECO plant exposure term(s) that describe the experimental
 conditions of this sample. Use only term IDs from the candidate list.
 
 Annotation guidance:
+- Every selected term must be supported by per-sample evidence. Project-level
+  context (study abstract, paper conditions) may only confirm or disambiguate
+  a term that per-sample evidence already suggests; it is never the sole basis
+  for a term. If a condition appears only in project-level text and the
+  per-sample evidence is silent, do not select it.
+- Cite the supporting per-sample evidence in each term's "evidence" field.
+- Do not co-select "temperature exposure" with a biotic exposure term (insect,
+  fungal, bacterial, metazoan, pathogen, or similar) unless the per-sample
+  evidence names the organism.
+- For an untreated control sample, prefer the "control exposure" term over
+  "no_condition". Use "no_condition" only when there is no exposure to
+  annotate at all.
 - Exposure means an external treatment or environmental condition (pathogen,
   chemical, light, temperature, water, or nutrient treatment). Genotype,
   developmental stage, sampling time point, and study setting are NOT
@@ -170,6 +185,7 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestor
     allowed_ids = {term["id"] for term in terms if term.get("branch") == "exposure"}
     top_k = int(params["top_k"])
     query_text = _query_text(biosample, sra, summary)
+    sample_lines, project_lines = exposure_evidence(biosample, sra, summary)
     candidates, max_score = _candidates(
         query_text, synonyms, terms, embeddings, model, top_k, allowed_ids
     )
@@ -177,7 +193,8 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestor
     term_by_id = {term["id"]: term for term in terms}
 
     prompt = PROMPT.format(
-        evidence=query_text or "(none)",
+        sample_evidence="\n".join(sample_lines) or "(none)",
+        project_evidence="\n".join(project_lines) or "(none)",
         candidates="\n".join(
             f"- {term['id']} | {term['label']} | {term['definition'][:300]}"
             for term in candidates
