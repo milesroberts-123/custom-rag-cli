@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from evidence import evidence_lines
+from evidence import evidence_lines, merge_sra
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -155,17 +155,20 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_tissue")
 
 
-def _label_one(run, inputs, params):
+def _label_one(samn, runs, inputs, params):
     """Label a single run; returns the result dict."""
     rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
-        write_skip(run, rna_type, inputs["output"])
+        write_skip(samn, runs, rna_type, inputs["output"])
         return None
 
     with open(inputs["biosample"]) as handle:
         biosample = json.load(handle)
-    with open(inputs["sra"]) as handle:
-        sra = json.load(handle)
+    sras = []
+    for path in inputs["sra"]:
+        with open(path) as handle:
+            sras.append(json.load(handle))
+    sra = merge_sra(sras)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
@@ -225,7 +228,8 @@ def _label_one(run, inputs, params):
             source = "chat_fallback" if fell_back else "chat"
 
     result = {
-        "run": run,
+        "biosample": samn,
+        "run": runs[0] if runs else None,
         "tissue": category,
         "source": source,
         "confidence": confidence,
@@ -236,7 +240,7 @@ def _label_one(run, inputs, params):
 
     LOGGER.info(
         "%s: tissue=%s (source=%s, confidence=%s)",
-        run,
+        samn,
         category,
         source,
         confidence,
@@ -249,22 +253,23 @@ def _label_one(run, inputs, params):
 
 def main():
     params = dict(snakemake.params)
-    for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
+    for samn, runs, prjna in zip(params["samns"], params["runs"], params["prjnas"]):
         _label_one(
-            run,
+            samn,
+            runs,
             {
-                "rna_type": f"results/rna_type/{run}.json",
+                "rna_type": f"results/rna_type/{samn}.json",
                 "biosample": f"results/metadata/biosample/{samn}.json",
-                "sra": f"results/metadata/sra/{run}.json",
+                "sra": [f"results/metadata/sra/{run}.json" for run in runs],
                 "summary": f"results/summary/{prjna}.json",
-                "output": f"results/tissue/{run}.json",
+                "output": f"results/tissue/{samn}.json",
             },
             params,
         )
 
     marker = Path(snakemake.output[0])
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
+    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
 
 
 if __name__ == "__main__":

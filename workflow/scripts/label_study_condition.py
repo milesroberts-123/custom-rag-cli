@@ -4,7 +4,7 @@ import json
 import sys
 from pathlib import Path
 
-from evidence import evidence_lines
+from evidence import evidence_lines, merge_sra
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -88,17 +88,20 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_study_condition")
 
 
-def _label_one(run, inputs, params, study_terms, criteria, term_by_label):
+def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label):
     """Classify one run's study condition; returns the result dict or None."""
     rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
-        write_skip(run, rna_type, inputs["output"])
+        write_skip(samn, runs, rna_type, inputs["output"])
         return None
 
     with open(inputs["biosample"]) as handle:
         biosample = json.load(handle)
-    with open(inputs["sra"]) as handle:
-        sra = json.load(handle)
+    sras = []
+    for path in inputs["sra"]:
+        with open(path) as handle:
+            sras.append(json.load(handle))
+    sra = merge_sra(sras)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
@@ -148,7 +151,8 @@ def _label_one(run, inputs, params, study_terms, criteria, term_by_label):
 
     term = term_by_label.get(category)
     result = {
-        "run": run,
+        "biosample": samn,
+        "run": runs[0] if runs else None,
         "layer": "study_condition",
         "term_id": term["id"] if term else None,
         "label": term["label"] if term else OTHER,
@@ -162,7 +166,7 @@ def _label_one(run, inputs, params, study_terms, criteria, term_by_label):
 
     LOGGER.info(
         "%s: study_condition=%s (source=%s, confidence=%s)",
-        run,
+        samn,
         category,
         source,
         confidence,
@@ -178,15 +182,16 @@ def main():
     study_terms = _load_terms(snakemake.input.index)
     criteria = _criteria(study_terms)
     term_by_label = {term["label"]: term for term in study_terms}
-    for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
+    for samn, runs, prjna in zip(params["samns"], params["runs"], params["prjnas"]):
         _label_one(
-            run,
+            samn,
+            runs,
             {
-                "rna_type": f"results/rna_type/{run}.json",
+                "rna_type": f"results/rna_type/{samn}.json",
                 "biosample": f"results/metadata/biosample/{samn}.json",
-                "sra": f"results/metadata/sra/{run}.json",
+                "sra": [f"results/metadata/sra/{run}.json" for run in runs],
                 "summary": f"results/summary/{prjna}.json",
-                "output": f"results/study_condition/{run}.json",
+                "output": f"results/study_condition/{samn}.json",
             },
             params,
             study_terms,
@@ -196,7 +201,7 @@ def main():
 
     marker = Path(snakemake.output[0])
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
+    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
 
 
 if __name__ == "__main__":

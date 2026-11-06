@@ -92,10 +92,13 @@ lint/format/test checks in CI.
   windows safe; ATHRDB `request_cap_reached` stubs are retried when budget
   remains. Keep `batch_size` ≤ `athrdb.max_requests`.
 - The five labeling rules (RNA type, tissue, germplasm, exposure, study
-  condition) run in chunk jobs of `label_chunk_size` runs (default 50), not
-  one job per run: per-run output paths are unchanged, but the interpreter
-  and sentence-transformer encoder load once per chunk. A failed chunk redoes
-  up to `label_chunk_size` runs.
+  condition) are keyed by BioSample and run in chunk jobs of
+  `label_chunk_size` samples (default 50), not one job per run. All runs of a
+  sample are pooled as evidence; per-sample output paths are unchanged in
+  shape (`results/{kind}/{samn}.json`), and `labels.tsv` keeps one row per
+  run. Per-run keying gave runs of one sample different exposure term sets
+  (87% of multi-run samples), so do not reintroduce it. A failed chunk redoes
+  up to `label_chunk_size` samples.
 - Tissue and germplasm rules read structured attribute fields only
   (`tissue.rule_attribute_keys` / `germplasm.rule_attribute_keys`); study
   titles/abstracts, library names, and experiment titles are model evidence,

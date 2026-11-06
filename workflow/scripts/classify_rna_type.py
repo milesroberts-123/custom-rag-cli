@@ -1,10 +1,11 @@
-"""Classify the RNA species sequenced for one SRA run."""
+"""Classify the RNA species sequenced for one BioSample."""
 
 import json
 import re
 import sys
 from pathlib import Path
 
+from evidence import merge_sra
 from llm import chat_json, systemone
 
 MRNA = "mrna"
@@ -326,8 +327,8 @@ from script_logging import setup as _setup
 LOGGER = _setup("classify_rna_type")
 
 
-def _classify_one(run, biosample, sra, params):
-    """Classify one run's RNA type; returns the result dict."""
+def _classify_one(samn, run, biosample, sra, params):
+    """Classify one BioSample's RNA type; returns the result dict."""
     attribute_keys = list(params["attribute_keys"])
     lines = _evidence_lines(biosample, sra, attribute_keys)
     classification = _classify_rules(biosample, sra, attribute_keys)
@@ -395,6 +396,7 @@ def _classify_one(run, biosample, sra, params):
 
     eligible_types = set(params["accepted_rna_types"])
     return {
+        "biosample": samn,
         "run": run,
         "rna_type": category,
         "rna_subtype": subtype,
@@ -410,29 +412,65 @@ def _classify_one(run, biosample, sra, params):
 
 def main():
     params = dict(snakemake.params)
-    for run, samn in zip(params["runs"], params["samns"]):
+    for samn, runs in zip(params["samns"], params["runs"]):
+        sras = []
+        for run in runs:
+            with open(f"results/metadata/sra/{run}.json") as handle:
+                sras.append(json.load(handle))
+        sra = merge_sra(sras)
         with open(f"results/metadata/biosample/{samn}.json") as handle:
             biosample = json.load(handle)
-        with open(f"results/metadata/sra/{run}.json") as handle:
-            sra = json.load(handle)
 
-        result = _classify_one(run, biosample, sra, params)
+        # A BioSample can host several experiments; if they disagree on the
+        # library protocol the RNA type is not well defined for the sample.
+        strategies = {
+            (record.get("library_strategy") or "").strip().lower() for record in sras
+        }
+        selections = {
+            (record.get("library_selection") or "").strip().lower() for record in sras
+        }
+        strategies.discard("")
+        selections.discard("")
+        if len(strategies) > 1 or len(selections) > 1:
+            result = {
+                "biosample": samn,
+                "run": runs[0] if runs else None,
+                "runs": list(runs),
+                "rna_type": UNKNOWN,
+                "rna_subtype": None,
+                "ribo_depleted": False,
+                "mrna_eligible": False,
+                "confidence": None,
+                "probabilities": None,
+                "source": "mixed_library",
+                "evidence": (
+                    "runs of this BioSample disagree on library strategy or "
+                    f"selection (strategies={sorted(strategies)}, "
+                    f"selections={sorted(selections)})"
+                ),
+                "attribute_values": [],
+            }
+        else:
+            result = _classify_one(
+                samn, runs[0] if runs else None, biosample, sra, params
+            )
 
         LOGGER.info(
-            "%s: rna_type=%s%s (source=%s, confidence=%s)",
-            run,
+            "%s: rna_type=%s%s (source=%s, confidence=%s, runs=%d)",
+            samn,
             result["rna_type"],
             f":{result['rna_subtype']}" if result["rna_subtype"] else "",
             result["source"],
             result["confidence"],
+            len(runs),
         )
-        output = Path(f"results/rna_type/{run}.json")
+        output = Path(f"results/rna_type/{samn}.json")
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
 
     marker = Path(snakemake.output[0])
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
+    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
 
 
 if __name__ == "__main__":

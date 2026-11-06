@@ -14,10 +14,13 @@ def load_rna_type(path):
         return json.load(handle)
 
 
-def write_skip(run, rna_type, output):
-    """Write a minimal label stub for an excluded run."""
+def write_skip(biosample, runs, rna_type, output):
+    """Write a minimal label stub for an excluded sample."""
+    runs = list(runs or [])
     result = {
-        "run": run,
+        "biosample": biosample,
+        "run": runs[0] if runs else None,
+        "runs": runs,
         "skipped": True,
         "reason": "not_mrna",
         "rna_type": rna_type.get("rna_type"),
@@ -29,6 +32,6 @@ def write_skip(run, rna_type, output):
     output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
     LOGGER.info(
         "%s: label stub written (not mRNA-eligible; rna_type=%s)",
-        run,
+        biosample,
         rna_type.get("rna_type"),
     )

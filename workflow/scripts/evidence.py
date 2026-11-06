@@ -57,6 +57,37 @@ def paper_lines(summary):
     return lines
 
 
+def merge_sra(records):
+    """Merge the SRA records of several runs that belong to one BioSample.
+
+    A BioSample can be sequenced as more than one run. Sample-level fields are
+    identical across those runs, but experiment title and library name can
+    differ; they are joined so the labeler sees every value instead of an
+    arbitrary one. ``aggregate`` flags samples whose runs disagree on those
+    fields for review.
+    """
+    merged = {}
+    joined = ("experiment_title", "library_name", "sample_name")
+    for record in records:
+        for key, value in (record or {}).items():
+            if key in joined:
+                if not value:
+                    continue
+                values = [part for part in (merged.get(key) or "").split("; ") if part]
+                if value not in values:
+                    values.append(value)
+                merged[key] = "; ".join(values)
+            elif key == "sample_attributes":
+                attributes = dict(merged.get(key) or {})
+                for name, attribute in (value or {}).items():
+                    if attribute and not attributes.get(name):
+                        attributes[name] = attribute
+                merged[key] = attributes
+            elif value and not merged.get(key):
+                merged[key] = value
+    return merged
+
+
 def exposure_evidence(biosample, sra, summary, max_abstract=800):
     """Split exposure evidence into per-sample and project-level blocks.
 

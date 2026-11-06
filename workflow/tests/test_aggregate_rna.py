@@ -58,34 +58,34 @@ def test_aggregate_accumulates_completed_runs(tmp_path, monkeypatch):
     ).to_csv(samples, sep="\t", index=False)
 
     _write(
-        results / "rna_type" / "SRR1.json",
-        _rna("SRR1", "ribo_depleted_total_rna", True),
+        results / "rna_type" / "SAMN1.json",
+        _rna("SAMN1", "ribo_depleted_total_rna", True),
     )
-    _write(results / "rna_type" / "SRR2.json", _rna("SRR2", "total_rna", False))
-    # SRR3 is classified eligible but its label stage has not completed.
-    _write(results / "rna_type" / "SRR3.json", _rna("SRR3", "mrna", True))
+    _write(results / "rna_type" / "SAMN2.json", _rna("SAMN2", "total_rna", False))
+    # SAMN3 is classified eligible but its label stage has not completed.
+    _write(results / "rna_type" / "SAMN3.json", _rna("SAMN3", "mrna", True))
 
-    for run in ("SRR1", "SRR2"):
+    for samn in ("SAMN1", "SAMN2"):
         _write(
-            results / "tissue" / f"{run}.json",
-            {"run": run, "tissue": "leaf", "source": "rules"},
+            results / "tissue" / f"{samn}.json",
+            {"biosample": samn, "tissue": "leaf", "source": "rules"},
         )
         _write(
-            results / "germplasm" / f"{run}.json",
+            results / "germplasm" / f"{samn}.json",
             {
-                "run": run,
+                "biosample": samn,
                 "germplasm_type": "natural_accession",
                 "is_natural_accession": True,
                 "source": "rules",
             },
         )
         _write(
-            results / "exposure" / f"{run}.json",
-            {"run": run, "terms": [], "other": False},
+            results / "exposure" / f"{samn}.json",
+            {"biosample": samn, "terms": [], "other": False},
         )
         _write(
-            results / "study_condition" / f"{run}.json",
-            {"run": run, "term_id": None, "label": "OTHER", "other": True},
+            results / "study_condition" / f"{samn}.json",
+            {"biosample": samn, "term_id": None, "label": "OTHER", "other": True},
         )
     for run, gsm, tissue, genotype in (
         ("SRR1", "GSM9001", "leaf", "wild type"),
@@ -124,11 +124,11 @@ def test_aggregate_accumulates_completed_runs(tmp_path, monkeypatch):
         "snakemake",
         SimpleNamespace(
             input=SimpleNamespace(
-                rna_type=["results/rna_type/SRR1.json"],
-                tissue=["results/tissue/SRR1.json"],
-                germplasm=["results/germplasm/SRR1.json"],
-                exposure=["results/exposure/SRR1.json"],
-                study=["results/study_condition/SRR1.json"],
+                rna_type=["results/rna_type/SAMN1.json"],
+                tissue=["results/tissue/SAMN1.json"],
+                germplasm=["results/germplasm/SAMN1.json"],
+                exposure=["results/exposure/SAMN1.json"],
+                study=["results/study_condition/SAMN1.json"],
                 athrdb=["results/metadata/athrdb/SRR1.json"],
                 index=str(index),
             ),
@@ -181,7 +181,7 @@ def test_aggregate_ignores_incomplete_runs(tmp_path, monkeypatch):
         ]
     ).to_csv(samples, sep="\t", index=False)
 
-    _write(results / "rna_type" / "SRR4.json", _rna("SRR4", "mrna", True))
+    _write(results / "rna_type" / "SAMN4.json", _rna("SAMN4", "mrna", True))
     # No tissue/germplasm/exposure/study/athrdb yet: the window is incomplete.
 
     index = tmp_path / "index"
@@ -193,7 +193,7 @@ def test_aggregate_ignores_incomplete_runs(tmp_path, monkeypatch):
         "snakemake",
         SimpleNamespace(
             input=SimpleNamespace(
-                rna_type=["results/rna_type/SRR4.json"],
+                rna_type=["results/rna_type/SAMN4.json"],
                 tissue=[],
                 germplasm=[],
                 exposure=[],

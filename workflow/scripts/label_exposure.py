@@ -7,7 +7,7 @@ from pathlib import Path
 import numpy as np
 from sentence_transformers import SentenceTransformer
 
-from evidence import evidence_lines, exposure_evidence
+from evidence import evidence_lines, exposure_evidence, merge_sra
 from llm import chat_json
 from peco_utils import ancestor_map, prune_ancestors
 from skip import load_rna_type, write_skip
@@ -168,17 +168,22 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_exposure")
 
 
-def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestors):
+def _label_one(
+    samn, runs, inputs, params, model, terms, synonyms, embeddings, ancestors
+):
     """Label one run's exposure terms; returns the result dict or None."""
     rna_type = load_rna_type(inputs["rna_type"])
     if not rna_type.get("mrna_eligible"):
-        write_skip(run, rna_type, inputs["output"])
+        write_skip(samn, runs, rna_type, inputs["output"])
         return None
 
     with open(inputs["biosample"]) as handle:
         biosample = json.load(handle)
-    with open(inputs["sra"]) as handle:
-        sra = json.load(handle)
+    sras = []
+    for path in inputs["sra"]:
+        with open(path) as handle:
+            sras.append(json.load(handle))
+    sra = merge_sra(sras)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
@@ -237,12 +242,13 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestor
             )
 
     if selected is None:
-        raise RuntimeError(f"could not label {run}: {last_error}")
+        raise RuntimeError(f"could not label {samn}: {last_error}")
 
     selected, pruned = prune_ancestors(selected, ancestors)
 
     result = {
-        "run": run,
+        "biosample": samn,
+        "run": runs[0] if runs else None,
         "layer": "exposure",
         "model": params["model"],
         "n_candidates": len(candidates),
@@ -257,7 +263,7 @@ def _label_one(run, inputs, params, model, terms, synonyms, embeddings, ancestor
 
     LOGGER.info(
         "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s, pruned=%d)",
-        run,
+        samn,
         len(selected),
         no_condition,
         other,
@@ -276,15 +282,16 @@ def main():
     # The encoder is the expensive per-job constant; load it once per chunk.
     model = SentenceTransformer(params["embed_model"])
     ancestors = ancestor_map(terms)
-    for run, samn, prjna in zip(params["runs"], params["samns"], params["prjnas"]):
+    for samn, runs, prjna in zip(params["samns"], params["runs"], params["prjnas"]):
         _label_one(
-            run,
+            samn,
+            runs,
             {
-                "rna_type": f"results/rna_type/{run}.json",
+                "rna_type": f"results/rna_type/{samn}.json",
                 "biosample": f"results/metadata/biosample/{samn}.json",
-                "sra": f"results/metadata/sra/{run}.json",
+                "sra": [f"results/metadata/sra/{run}.json" for run in runs],
                 "summary": f"results/summary/{prjna}.json",
-                "output": f"results/exposure/{run}.json",
+                "output": f"results/exposure/{samn}.json",
             },
             params,
             model,
@@ -296,7 +303,7 @@ def main():
 
     marker = Path(snakemake.output[0])
     marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
+    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
 
 
 if __name__ == "__main__":

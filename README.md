@@ -84,9 +84,12 @@ a fixed order of non-overlapping windows:
   `label_chunk_size` runs (default 50) instead of one job per run: the
   Python interpreter and the sentence-transformer encoder load once per
   chunk, which removes most per-job startup overhead at window scale.
-  Outputs stay per-run (`results/{rna_type,tissue,germplasm,exposure,
-  study_condition}/{run}.json`), so `aggregate`, the review app, and the DAG
-  shape are unchanged. Retry granularity is a chunk: a failed chunk redoes up
+  Outputs are keyed by BioSample (`results/{rna_type,tissue,germplasm,
+  exposure,study_condition}/{samn}.json`): a sample's annotations describe the
+  biological material, and the runs of one sample share them. `labels.tsv`
+  keeps one row per run, so the review app and downstream consumers are
+  unchanged. Samples whose runs disagree on experiment title or library name
+  are flagged `mixed_run_context` for review. Retry granularity is a chunk: a failed chunk redoes up
   to `label_chunk_size` runs.
 - **On Savio**, batch through the launcher; extra arguments pass straight to
   Snakemake:
@@ -292,7 +295,7 @@ libraries as natural accessions.
 Review reasons: `rna_type_low_confidence`, `tissue_other`,
 `tissue_low_confidence`, `germplasm_unknown`, `germplasm_low_confidence`,
 `exposure_other`, `exposure_weak_retrieval`, `study_other`,
-`study_low_confidence`, `athrdb_disagreement`. Paper availability is reported
+`study_low_confidence`, `athrdb_disagreement`, `mixed_run_context`. Paper availability is reported
 in the `has_paper`/`paper_low_confidence` columns but does not itself trigger
 review.
 

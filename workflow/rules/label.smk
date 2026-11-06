@@ -17,8 +17,8 @@ rule label_tissue:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("tissue", decision=True),
-        runs=chunk_runs,
         samns=chunk_samns,
+        runs=chunk_runs,
         prjnas=chunk_prjnas,
         categories=config["tissue"]["categories"],
         keywords=config["tissue"]["keywords"],
@@ -42,8 +42,8 @@ rule label_germplasm:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("germplasm", decision=True),
-        runs=chunk_runs,
         samns=chunk_samns,
+        runs=chunk_runs,
         prjnas=chunk_prjnas,
         categories=config["germplasm"]["categories"],
         attribute_keys=config["germplasm"]["attribute_keys"],
@@ -68,8 +68,8 @@ rule label_exposure:
         "../envs/peco_llm.yaml"
     params:
         **llm_rule_params("exposure"),
-        runs=chunk_runs,
         samns=chunk_samns,
+        runs=chunk_runs,
         prjnas=chunk_prjnas,
         top_k=config["peco"]["top_k"],
         embed_model=config["peco"]["embed_model"],
@@ -90,8 +90,8 @@ rule label_study_condition:
         "../envs/llm.yaml"
     params:
         **llm_rule_params("study", decision=True),
-        runs=chunk_runs,
         samns=chunk_samns,
+        runs=chunk_runs,
         prjnas=chunk_prjnas,
     script:
         "../scripts/label_study_condition.py"

@@ -123,7 +123,7 @@ def test_main_writes_classification(tmp_path, monkeypatch):
         SimpleNamespace(
             output=[str(marker_path)],
             params={
-                "runs": ["SRR1"],
+                "runs": [["SRR1"]],
                 "samns": ["SAMN1"],
                 "backend": "rules",
                 "attribute_keys": KEYS,
@@ -140,13 +140,13 @@ def test_main_writes_classification(tmp_path, monkeypatch):
     )
     rna.main()
 
-    output_path = tmp_path / "results" / "rna_type" / "SRR1.json"
+    output_path = tmp_path / "results" / "rna_type" / "SAMN1.json"
     result = json.loads(output_path.read_text())
     assert result["rna_type"] == rna.RIBO
     assert result["ribo_depleted"] is True
     assert result["mrna_eligible"] is True
     assert result["source"] == "rules"
-    assert json.loads(marker_path.read_text())["runs"] == 1
+    assert json.loads(marker_path.read_text())["samples"] == 1
 
 
 def test_classify_one_conflict_is_unknown():
@@ -157,6 +157,7 @@ def test_classify_one_conflict_is_unknown():
         "min_confidence": 0.6,
     }
     result = rna._classify_one(
+        "SAMN1",
         "SRR1",
         {"attributes": {}},
         {"library_strategy": "miRNA-Seq", "library_selection": "PolyA"},
@@ -175,7 +176,11 @@ def test_classify_one_missing_metadata_is_unknown():
         "min_confidence": 0.6,
     }
     result = rna._classify_one(
-        "SRR2", {"attributes": {}}, {"library_strategy": "RNA-Seq"}, params
+        "SAMN2",
+        "SRR2",
+        {"attributes": {}},
+        {"library_strategy": "RNA-Seq"},
+        params,
     )
     assert result["rna_type"] == rna.UNKNOWN
     assert result["source"] == "missing_metadata"

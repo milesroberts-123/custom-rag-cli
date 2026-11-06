@@ -176,11 +176,34 @@ def _review_reasons(tissue, germplasm, exposure, study, rna_type, athrdb, review
 LABEL_KINDS = ("tissue", "germplasm", "exposure", "study_condition")
 
 
-def _run_path(kind, run):
-    """Path to one run's per-kind record under results/."""
-    if kind == "athrdb":
-        return Path("results/metadata/athrdb") / f"{run}.json"
-    return Path("results") / kind / f"{run}.json"
+def _label_path(kind, samn):
+    """Path to one BioSample's annotation record under results/."""
+    return Path("results") / kind / f"{samn}.json"
+
+
+def _athrdb_path(run):
+    """AthRDB curates GEO libraries, which are keyed by run."""
+    return Path("results/metadata/athrdb") / f"{run}.json"
+
+
+def _mixed_run_samples(sheet):
+    """BioSamples whose runs disagree on experiment title or library name."""
+    groups = sheet.groupby("biosample")["run"]
+    mixed = set()
+    for samn, runs in groups:
+        if len(runs) < 2:
+            continue
+        titles, names = set(), set()
+        for run in runs:
+            path = Path("results/metadata/sra") / f"{run}.json"
+            if not path.exists():
+                continue
+            record = json.loads(path.read_text())
+            titles.add((record.get("experiment_title") or "").strip())
+            names.add((record.get("library_name") or "").strip())
+        if len(titles) > 1 or len(names) > 1:
+            mixed.add(samn)
+    return mixed
 
 
 def main():
@@ -191,13 +214,14 @@ def main():
         for term in json.loads((Path(snakemake.input.index) / "terms.json").read_text())
     }
     review = dict(snakemake.params.review)
+    mixed = _mixed_run_samples(sheet)
 
     rows = []
     excluded = []
     incomplete = []
     for sample in sheet.itertuples():
         run = sample.run
-        rna_type_path = _run_path("rna_type", run)
+        rna_type_path = _label_path("rna_type", sample.biosample)
         if not rna_type_path.exists():
             # Not yet classified: belongs to a window that has not run.
             incomplete.append(run)
@@ -223,8 +247,8 @@ def main():
             continue
 
         # Eligible runs need their full label set plus the ATHRDB record.
-        paths = {kind: _run_path(kind, run) for kind in LABEL_KINDS}
-        athrdb_path = _run_path("athrdb", run)
+        paths = {kind: _label_path(kind, sample.biosample) for kind in LABEL_KINDS}
+        athrdb_path = _athrdb_path(run)
         missing = [kind for kind, path in paths.items() if not path.exists()]
         if missing or not athrdb_path.exists():
             incomplete.append(run)
@@ -251,6 +275,8 @@ def main():
         reasons = _review_reasons(
             tissue, germplasm, exposure, study, rna_type, athrdb, review
         )
+        if sample.biosample in mixed:
+            reasons.append("mixed_run_context")
 
         rows.append(
             {
