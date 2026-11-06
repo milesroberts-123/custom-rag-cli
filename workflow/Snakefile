@@ -51,6 +51,8 @@ if BATCH_SIZE > 0:
             "later window must redo."
         )
 
+WINDOW_INDEX = BATCH_INDEX
+
 RUNS = SAMPLES["run"].tolist()
 SAMNS = sorted(set(SAMPLES["biosample"].tolist()))
 PRJNAS = sorted(set(SAMPLES["bioproject"].tolist()))
@@ -74,6 +76,11 @@ rule all:
         expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/chunks/study_condition/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/metadata/bioproject/{prjna}.json", prjna=PRJNAS),
-        expand("results/metadata/athrdb/{run}.json", run=RUNS),
         "results/labels.tsv",
         "results/labels.excluded.tsv",
+
+
+rule athrdb_all:
+    """Fetch PlantRNADB curation for every run (evidence-only, never gates all)."""
+    input:
+        expand("results/metadata/athrdb/{run}.json", run=RUNS),

@@ -10,6 +10,8 @@ batch_index: 0
 # Label rules process runs in chunk jobs: one interpreter/encoder load per
 # chunk of this many runs instead of per run. Outputs stay per-run.
 label_chunk_size: 50
+# Exposure is the slow layer; smaller chunks keep more jobs in flight.
+exposure_chunk_size: 25
 
 ncbi:
   email: milesroberts@berkeley.edu

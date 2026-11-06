@@ -107,3 +107,79 @@ def chunk_sra(wildcards):
 
 def chunk_summaries(wildcards):
     return [f"results/summary/{prjna}.json" for prjna in chunk_prjnas(wildcards)]
+
+
+# Exposure labeling is the slowest layer, so it uses smaller chunks than the
+# cheap Tev1 layers: 25 samples per job keeps more chunks in flight for the
+# same total work (16 slots, ~18 min per chunk instead of ~30).
+EXPOSURE_CHUNK_SIZE = int(config.get("exposure_chunk_size", 25))
+EXPOSURE_CHUNKS = [
+    BIOSAMPLES[i : i + EXPOSURE_CHUNK_SIZE]
+    for i in range(0, len(BIOSAMPLES), EXPOSURE_CHUNK_SIZE)
+]
+EXPOSURE_CHUNK_IDS = list(range(len(EXPOSURE_CHUNKS)))
+
+
+def exposure_chunk_samns(wildcards):
+    """BioSample accessions handled by one exposure chunk job."""
+    return EXPOSURE_CHUNKS[int(wildcards.echunk)]
+
+
+def exposure_chunk_biosamples(wildcards):
+    return [
+        f"results/metadata/biosample/{samn}.json"
+        for samn in exposure_chunk_samns(wildcards)
+    ]
+
+
+def exposure_chunk_runs(wildcards):
+    return [runs_of(samn) for samn in exposure_chunk_samns(wildcards)]
+
+
+def exposure_chunk_sra(wildcards):
+    return [
+        f"results/metadata/sra/{run}.json"
+        for runs in exposure_chunk_runs(wildcards)
+        for run in runs
+    ]
+
+
+def exposure_chunk_prjnas(wildcards):
+    return [prjna_of_samn(samn) for samn in exposure_chunk_samns(wildcards)]
+
+
+def exposure_chunk_summaries(wildcards):
+    return [
+        f"results/summary/{prjna}.json" for prjna in exposure_chunk_prjnas(wildcards)
+    ]
+
+
+def _overlapping_chunks(first_index, count, size, kind):
+    """Marker paths for every chunk of `size` samples covering an index range."""
+    last_index = first_index + count - 1
+    return [
+        f"results/chunks/{kind}/{k}.done"
+        for k in range(first_index // size, last_index // size + 1)
+    ]
+
+
+def rna_chunks_for_exposure(wildcards):
+    """RNA-type markers that must exist before one exposure chunk can run."""
+    echunk = int(wildcards.echunk)
+    return _overlapping_chunks(
+        echunk * EXPOSURE_CHUNK_SIZE,
+        len(EXPOSURE_CHUNKS[echunk]),
+        LABEL_CHUNK_SIZE,
+        "rna_type",
+    )
+
+
+def exposure_chunks_for_sample_rows(wildcards):
+    """Exposure markers covering one sample-rows chunk."""
+    chunk = int(wildcards.chunk)
+    return _overlapping_chunks(
+        chunk * LABEL_CHUNK_SIZE,
+        len(CHUNKS[chunk]),
+        EXPOSURE_CHUNK_SIZE,
+        "exposure",
+    )

@@ -65,13 +65,15 @@ a fixed order of non-overlapping windows:
   so windows are deterministic and non-overlapping: window *k* is rows
   `(k-1)*batch_size + 1` … `k*batch_size`. Unset keys (both 0, the default)
   process the whole sheet, which is what the `.test` catalog case uses.
-- **`labels.tsv` accumulates.** `aggregate` rescans the entire sheet every
-  invocation and includes every run whose `rna_type`, tissue, germplasm,
-  exposure, study-condition, and ATHRDB records are complete on disk — from
-  this window or any earlier one. Window 3's table therefore contains runs
-  1–15000, not just 10001–15000. Runs classified but not fully labeled are
-  counted and reported at the end of `aggregate`; rerun their window to
-  finish them.
+- **`labels.tsv` accumulates through row fragments.** Each window writes one
+  TSV fragment per chunk under `results/rows/{window}-{chunk}.tsv`, holding the
+  final row for every run of that chunk (including excluded runs). `aggregate`
+  concatenates the fragments, keeping the newest window's row per run, so its
+  cost is proportional to the number of chunks rather than to every run on the
+  sheet. Window 3's table therefore contains runs 1–15000, not just
+  10001–15000. Runs classified but not fully labeled are reported as
+  incomplete; rerun their window to finish them. Deleting `results/rows/`
+  forces a full rebuild (the fragments are the source of truth for the table).
 - **Fetches are window-bounded and repeat-safe.** The single-job metadata
   fetchers (NCBI, BioProject, paper, ATHRDB) process only the window's
   accessions and skip files that already exist, so later windows never
@@ -89,8 +91,11 @@ a fixed order of non-overlapping windows:
   biological material, and the runs of one sample share them. `labels.tsv`
   keeps one row per run, so the review app and downstream consumers are
   unchanged. Samples whose runs disagree on experiment title or library name
-  are flagged `mixed_run_context` for review. Retry granularity is a chunk: a failed chunk redoes up
-  to `label_chunk_size` runs.
+  are flagged `mixed_run_context` for review. Retry granularity is a chunk: a
+  failed chunk redoes up to `label_chunk_size` samples. Exposure, the slowest
+  layer, uses smaller chunks of `exposure_chunk_size` samples (default 25) so
+  more of its jobs run concurrently. ATHRDB is fetched by its own target,
+  `snakemake athrdb_all`, and never gates `rule all` or the labels.
 - **On Savio**, batch through the launcher; extra arguments pass straight to
   Snakemake:
 

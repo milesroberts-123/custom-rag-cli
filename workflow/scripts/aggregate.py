@@ -206,59 +206,65 @@ def _mixed_run_samples(sheet):
     return mixed
 
 
-def main():
-    sheet = pd.read_table(snakemake.params.samples, dtype=str)
+FRAGMENT_COLUMNS = LABEL_COLUMNS + ["included", "exclusion_reason"]
 
-    terms = {
-        term["id"]: term
-        for term in json.loads((Path(snakemake.input.index) / "terms.json").read_text())
-    }
-    review = dict(snakemake.params.review)
+
+def build_rows(sheet, samns, review, terms, window, destination):
+    """Build one window-chunk fragment: one row per run, included or excluded.
+
+    Row construction happens here, next to the labels, so `aggregate` never has
+    to reopen per-run metadata again: it only concatenates fragments. That keeps
+    the final table's cost proportional to the number of chunks, not to the
+    number of runs processed so far.
+    """
+    terms_by_id = terms
     mixed = _mixed_run_samples(sheet)
-
+    wanted = set(samns)
     rows = []
-    excluded = []
-    incomplete = []
+
     for sample in sheet.itertuples():
-        run = sample.run
+        if sample.biosample not in wanted:
+            continue
         rna_type_path = _label_path("rna_type", sample.biosample)
         if not rna_type_path.exists():
-            # Not yet classified: belongs to a window that has not run.
-            incomplete.append(run)
             continue
         rna_type = json.loads(rna_type_path.read_text())
 
+        base = {
+            "run": sample.run,
+            "biosample": sample.biosample,
+            "bioproject": sample.bioproject,
+            "species": sample.species,
+            "rna_type": rna_type.get("rna_type"),
+            "rna_subtype": rna_type.get("rna_subtype") or "",
+            "ribo_depleted": bool(rna_type.get("ribo_depleted", False)),
+            "rna_type_source": rna_type.get("source", ""),
+            "rna_type_confidence": rna_type.get("confidence"),
+            "rna_type_evidence": rna_type.get("evidence", ""),
+        }
+
         if not rna_type.get("mrna_eligible", False):
-            excluded.append(
+            rows.append(
                 {
-                    "run": run,
-                    "biosample": sample.biosample,
-                    "bioproject": sample.bioproject,
-                    "species": sample.species,
-                    "rna_type": rna_type.get("rna_type"),
-                    "rna_subtype": rna_type.get("rna_subtype") or "",
-                    "ribo_depleted": bool(rna_type.get("ribo_depleted", False)),
-                    "rna_type_source": rna_type.get("source", ""),
-                    "rna_type_confidence": rna_type.get("confidence"),
-                    "rna_type_evidence": rna_type.get("evidence", ""),
+                    **base,
+                    "included": False,
                     "exclusion_reason": _exclusion_reason(rna_type),
                 }
             )
             continue
 
-        # Eligible runs need their full label set plus the ATHRDB record.
         paths = {kind: _label_path(kind, sample.biosample) for kind in LABEL_KINDS}
-        athrdb_path = _athrdb_path(run)
-        missing = [kind for kind, path in paths.items() if not path.exists()]
-        if missing or not athrdb_path.exists():
-            incomplete.append(run)
+        if any(not path.exists() for path in paths.values()):
             continue
 
         tissue = json.loads(paths["tissue"].read_text())
         germplasm = json.loads(paths["germplasm"].read_text())
         exposure = json.loads(paths["exposure"].read_text())
         study = json.loads(paths["study_condition"].read_text())
-        athrdb = json.loads(athrdb_path.read_text())
+
+        athrdb_path = _athrdb_path(sample.run)
+        athrdb = json.loads(athrdb_path.read_text()) if athrdb_path.exists() else {}
+
         summary_path = Path("results/summary") / f"{sample.bioproject}.json"
         summary = (
             json.loads(summary_path.read_text())
@@ -270,7 +276,7 @@ def main():
         growth_terms = [
             term
             for term in exposure.get("terms", [])
-            if terms.get(term["term_id"], {}).get("growth_system")
+            if terms_by_id.get(term["term_id"], {}).get("growth_system")
         ]
         reasons = _review_reasons(
             tissue, germplasm, exposure, study, rna_type, athrdb, review
@@ -280,17 +286,9 @@ def main():
 
         rows.append(
             {
-                "run": sample.run,
-                "biosample": sample.biosample,
-                "bioproject": sample.bioproject,
-                "species": sample.species,
-                "rna_type": rna_type.get("rna_type"),
-                "rna_subtype": rna_type.get("rna_subtype") or "",
-                "ribo_depleted": bool(rna_type.get("ribo_depleted", False)),
+                **base,
+                "included": True,
                 "mrna_eligible": True,
-                "rna_type_source": rna_type.get("source", ""),
-                "rna_type_confidence": rna_type.get("confidence"),
-                "rna_type_evidence": rna_type.get("evidence", ""),
                 "tissue": tissue.get("tissue"),
                 "tissue_source": tissue.get("source"),
                 "tissue_confidence": tissue.get("confidence"),
@@ -329,24 +327,62 @@ def main():
             }
         )
 
-    if incomplete:
+    destination = Path(destination)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    pd.DataFrame(rows, columns=FRAGMENT_COLUMNS).to_csv(
+        destination, sep="\t", index=False, na_rep=""
+    )
+    return len(rows)
+
+
+def _fragment_order(path):
+    """Sort fragments by (window, chunk) so the newest window wins dedupes."""
+    stem = Path(path).stem
+    window, _, chunk = stem.rpartition("-")
+    try:
+        return int(window), int(chunk)
+    except ValueError:
+        return 0, 0
+
+
+def main():
+    sheet = pd.read_table(snakemake.params.samples, dtype=str)
+    fragments = sorted(Path("results/rows").glob("*.tsv"), key=_fragment_order)
+    frames = []
+    for path in fragments:
+        frames.append(pd.read_csv(path, sep="\t", dtype=str, keep_default_na=False))
+
+    if frames:
+        combined = pd.concat(frames, ignore_index=True)
+        # Later fragments (newer window) replace earlier rows for the same run.
+        combined = combined.drop_duplicates(subset="run", keep="last")
+        included = combined[combined["included"] == "True"]
+        excluded = combined[combined["included"] != "True"]
+    else:
+        included = pd.DataFrame(columns=FRAGMENT_COLUMNS)
+        excluded = pd.DataFrame(columns=FRAGMENT_COLUMNS)
+
+    labels = included.reindex(columns=LABEL_COLUMNS).astype(object).fillna("")
+    excluded_out = excluded.reindex(columns=EXCLUDED_COLUMNS).astype(object).fillna("")
+
+    output = Path(snakemake.output.labels)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    labels.to_csv(output, sep="\t", index=False)
+
+    excluded_output = Path(snakemake.output.excluded)
+    excluded_output.parent.mkdir(parents=True, exist_ok=True)
+    excluded_out.to_csv(excluded_output, sep="\t", index=False)
+
+    accounted = set(combined["run"]) if frames else set()
+    missing = [run for run in sheet["run"] if run not in accounted]
+    if missing:
         print(
-            f"{len(incomplete)} of {len(sheet)} sheet runs are not aggregated "
-            f"yet ({'; '.join(incomplete[:5])}"
-            f"{'...' if len(incomplete) > 5 else ''}); rerun their window to "
+            f"{len(missing)} of {len(sheet)} sheet runs have no row yet "
+            f"({'; '.join(missing[:5])}"
+            f"{'...' if len(missing) > 5 else ''}); rerun their window to "
             "finish them.",
             file=sys.stderr,
         )
-
-    frame = pd.DataFrame(rows, columns=LABEL_COLUMNS)
-    output = Path(snakemake.output.labels)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    frame.to_csv(output, sep="\t", index=False)
-
-    excluded_frame = pd.DataFrame(excluded, columns=EXCLUDED_COLUMNS)
-    excluded_output = Path(snakemake.output.excluded)
-    excluded_output.parent.mkdir(parents=True, exist_ok=True)
-    excluded_frame.to_csv(excluded_output, sep="\t", index=False)
 
 
 if __name__ == "__main__":

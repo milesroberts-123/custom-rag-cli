@@ -73,7 +73,8 @@ lint/format/test checks in CI.
   Do not remove it from `rule all` without checking the app's fallback.
 - `fetch_athrdb` is a single serial job with an ATHRDB rate limit
   (`athrdb.min_interval_seconds` / `athrdb.jitter_fraction` /
-  `athrdb.max_requests`). Jitter is one-sided and never shortens a gap below
+  `athrdb.max_requests`), fetched by its own target `snakemake athrdb_all`
+  (never part of `rule all`, never gating labels). Jitter is one-sided and never shortens a gap below
   `min_interval_seconds`. It is evidence-only and fail-soft: query failures
   become `athrdb_note` stubs, never workflow errors. Do not turn it into
   per-run jobs; that multiplies request pressure. It is NOT an input to the
@@ -88,14 +89,17 @@ lint/format/test checks in CI.
   ATHRDB has no coverage for ENA-only libraries (no GEO record); expect
   `no_geo_record` stubs there.
 - Window batching (`batch_size`/`batch_index`) slices the sheet per
-  invocation; `aggregate` rescans the full sheet and accumulates completed
-  runs, so `labels.tsv` grows across windows. The single-job metadata
+  invocation; each window writes `results/rows/{window}-{chunk}.tsv` fragments
+  and `aggregate` only concatenates them (newest window wins per run), so
+  `labels.tsv` accumulates without rescanning per-run metadata. The fragments
+  are the source of truth: deleting `results/rows/` forces a full rebuild. The single-job metadata
   fetchers skip existing outputs, which makes repeated windows and later
   windows safe; ATHRDB `request_cap_reached` stubs are retried when budget
   remains. Keep `batch_size` ≤ `athrdb.max_requests`.
 - The five labeling rules (RNA type, tissue, germplasm, exposure, study
   condition) are keyed by BioSample and run in chunk jobs of
-  `label_chunk_size` samples (default 50), not one job per run. All runs of a
+  `label_chunk_size` samples (default 50; exposure uses `exposure_chunk_size`,
+  default 25), not one job per sample. All runs of a
   sample are pooled as evidence; per-sample output paths are unchanged in
   shape (`results/{kind}/{samn}.json`), and `labels.tsv` keeps one row per
   run. Per-run keying gave runs of one sample different exposure term sets

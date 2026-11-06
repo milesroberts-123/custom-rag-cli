@@ -57,20 +57,20 @@ rule label_germplasm:
 
 rule label_exposure:
     input:
-        rna_type="results/chunks/rna_type/{chunk}.done",
-        biosample=chunk_biosamples,
-        sra=chunk_sra,
-        summary=chunk_summaries,
+        rna_type=rna_chunks_for_exposure,
+        biosample=exposure_chunk_biosamples,
+        sra=exposure_chunk_sra,
+        summary=exposure_chunk_summaries,
         index="results/peco/peco_index",
     output:
-        "results/chunks/exposure/{chunk}.done",
+        "results/chunks/exposure/{echunk}.done",
     conda:
         "../envs/peco_llm.yaml"
     params:
         **llm_rule_params("exposure"),
-        samns=chunk_samns,
-        runs=chunk_runs,
-        prjnas=chunk_prjnas,
+        samns=exposure_chunk_samns,
+        runs=exposure_chunk_runs,
+        prjnas=exposure_chunk_prjnas,
         top_k=config["peco"]["top_k"],
         embed_model=config["peco"]["embed_model"],
     script:
@@ -97,15 +97,36 @@ rule label_study_condition:
         "../scripts/label_study_condition.py"
 
 
+rule sample_rows:
+    input:
+        rna_type="results/chunks/rna_type/{chunk}.done",
+        tissue="results/chunks/tissue/{chunk}.done",
+        germplasm="results/chunks/germplasm/{chunk}.done",
+        study="results/chunks/study_condition/{chunk}.done",
+        exposure=exposure_chunks_for_sample_rows,
+        sra=chunk_sra,
+        summaries=chunk_summaries,
+        index="results/peco/peco_index",
+    output:
+        "results/rows/{window}-{chunk}.tsv",
+    conda:
+        "../envs/aggregate.yaml"
+    params:
+        samples=config["samples"],
+        samns=chunk_samns,
+        runs=chunk_runs,
+        review=config["review"],
+    script:
+        "../scripts/sample_rows.py"
+
+
 rule aggregate:
     input:
-        rna_type=expand("results/chunks/rna_type/{chunk}.done", chunk=CHUNK_IDS),
-        tissue=expand("results/chunks/tissue/{chunk}.done", chunk=CHUNK_IDS),
-        germplasm=expand("results/chunks/germplasm/{chunk}.done", chunk=CHUNK_IDS),
-        exposure=expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),
-        study=expand("results/chunks/study_condition/{chunk}.done", chunk=CHUNK_IDS),
-        athrdb=expand("results/metadata/athrdb/{run}.json", run=RUNS),
-        summaries=expand("results/summary/{prjna}.json", prjna=PRJNAS),
+        rows=expand(
+            "results/rows/{window}-{chunk}.tsv",
+            window=WINDOW_INDEX,
+            chunk=CHUNK_IDS,
+        ),
         index="results/peco/peco_index",
     output:
         labels=report(
@@ -118,6 +139,5 @@ rule aggregate:
         "../envs/aggregate.yaml"
     params:
         samples=config["samples"],
-        review=config["review"],
     script:
         "../scripts/aggregate.py"

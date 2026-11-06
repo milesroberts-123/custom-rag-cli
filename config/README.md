@@ -165,6 +165,7 @@ Two optional top-level keys control batched invocations (also settable via
 |---|---|---|
 | `batch_size` | `0` | Rows per window when batching a large sheet; `0` disables batching. |
 | `batch_index` | `0` | One-based window to process; must be set together with `batch_size`. |
+| `exposure_chunk_size` | `25` | Samples per exposure-labeling chunk (the slow layer; smaller chunks raise parallelism). |
 | `label_chunk_size` | `50` | Runs per label chunk job; the four label rules load the interpreter/encoder once per chunk while outputs stay per-run. |
 
 Windows slice the sheet in sheet order and are non-overlapping. The metadata

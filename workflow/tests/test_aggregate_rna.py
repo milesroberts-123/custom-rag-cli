@@ -11,6 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 
 import aggregate
 
+REVIEW = {
+    "rna_type_confidence": 0.5,
+    "tissue_confidence": 0.5,
+    "germplasm_confidence": 0.5,
+    "exposure_retrieval_score": 0.55,
+    "study_confidence": 0.5,
+}
+
 
 def _write(path, payload):
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -119,34 +127,23 @@ def test_aggregate_accumulates_completed_runs(tmp_path, monkeypatch):
 
     labels_path = results / "labels.tsv"
     excluded_path = results / "labels.excluded.tsv"
+    sheet = pd.read_table(samples, dtype=str)
+    aggregate.build_rows(
+        sheet,
+        list(sheet["biosample"]),
+        REVIEW,
+        {},
+        window="0",
+        destination=results / "rows" / "0-0.tsv",
+    )
     monkeypatch.setattr(
         aggregate,
         "snakemake",
         SimpleNamespace(
-            input=SimpleNamespace(
-                rna_type=["results/rna_type/SAMN1.json"],
-                tissue=["results/tissue/SAMN1.json"],
-                germplasm=["results/germplasm/SAMN1.json"],
-                exposure=["results/exposure/SAMN1.json"],
-                study=["results/study_condition/SAMN1.json"],
-                athrdb=["results/metadata/athrdb/SRR1.json"],
-                index=str(index),
-            ),
             output=SimpleNamespace(
                 labels=str(labels_path), excluded=str(excluded_path)
             ),
-            params=SimpleNamespace(
-                samples=str(samples),
-                review={
-                    "rna_type_confidence": 0.6,
-                    "tissue_confidence": 0.6,
-                    "germplasm_confidence": 0.6,
-                    "exposure_retrieval_score": 0.55,
-                    "study_confidence": 0.6,
-                    "flag_missing_paper": True,
-                    "flag_low_confidence_paper": True,
-                },
-            ),
+            params=SimpleNamespace(samples=str(samples)),
         ),
         raising=False,
     )
@@ -188,34 +185,23 @@ def test_aggregate_ignores_incomplete_runs(tmp_path, monkeypatch):
     _write(index / "terms.json", [])
     labels_path = results / "labels.tsv"
     excluded_path = results / "labels.excluded.tsv"
+    sheet = pd.read_table(samples, dtype=str)
+    aggregate.build_rows(
+        sheet,
+        list(sheet["biosample"]),
+        REVIEW,
+        {},
+        window="0",
+        destination=results / "rows" / "0-0.tsv",
+    )
     monkeypatch.setattr(
         aggregate,
         "snakemake",
         SimpleNamespace(
-            input=SimpleNamespace(
-                rna_type=["results/rna_type/SAMN4.json"],
-                tissue=[],
-                germplasm=[],
-                exposure=[],
-                study=[],
-                athrdb=[],
-                index=str(index),
-            ),
             output=SimpleNamespace(
                 labels=str(labels_path), excluded=str(excluded_path)
             ),
-            params=SimpleNamespace(
-                samples=str(samples),
-                review={
-                    "rna_type_confidence": 0.6,
-                    "tissue_confidence": 0.6,
-                    "germplasm_confidence": 0.6,
-                    "exposure_retrieval_score": 0.55,
-                    "study_confidence": 0.6,
-                    "flag_missing_paper": True,
-                    "flag_low_confidence_paper": True,
-                },
-            ),
+            params=SimpleNamespace(samples=str(samples)),
         ),
         raising=False,
     )
