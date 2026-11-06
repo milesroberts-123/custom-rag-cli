@@ -67,7 +67,7 @@ include: "rules/label.smk"
 rule all:
     default_target: True
     input:
-        expand("results/rna_type/{run}.json", run=RUNS),
+        expand("results/chunks/rna_type/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/chunks/tissue/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/chunks/germplasm/{chunk}.done", chunk=CHUNK_IDS),
         expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),

@@ -75,10 +75,6 @@ def chunk_prjnas(wildcards):
     return [prjna_of(run) for run in chunk_runs(wildcards)]
 
 
-def chunk_rna_types(wildcards):
-    return [f"results/rna_type/{run}.json" for run in chunk_runs(wildcards)]
-
-
 def chunk_biosamples(wildcards):
     return [
         f"results/metadata/biosample/{samn}.json" for samn in chunk_samns(wildcards)

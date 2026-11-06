@@ -79,14 +79,15 @@ a fixed order of non-overlapping windows:
   are retried automatically in a later window when request budget remains.
   Keep `batch_size` at or below `athrdb.max_requests` (default 5000) so no
   window needs a second pass.
-- **Label jobs are chunked.** The four label rules process runs in chunk jobs
-  of `label_chunk_size` runs (default 50) instead of one job per run: the
+- **Label jobs are chunked.** All five labeling rules — RNA type, tissue,
+  germplasm, exposure, and study condition — process runs in chunk jobs of
+  `label_chunk_size` runs (default 50) instead of one job per run: the
   Python interpreter and the sentence-transformer encoder load once per
   chunk, which removes most per-job startup overhead at window scale.
-  Outputs stay per-run (`results/{tissue,germplasm,exposure,study_condition}/
-  {run}.json`), so `aggregate`, the review app, and the DAG shape are
-  unchanged. Retry granularity is a chunk: a failed chunk redoes up to
-  `label_chunk_size` runs.
+  Outputs stay per-run (`results/{rna_type,tissue,germplasm,exposure,
+  study_condition}/{run}.json`), so `aggregate`, the review app, and the DAG
+  shape are unchanged. Retry granularity is a chunk: a failed chunk redoes up
+  to `label_chunk_size` runs.
 - **On Savio**, batch through the launcher; extra arguments pass straight to
   Snakemake:
 

@@ -7,7 +7,7 @@
 
 rule label_tissue:
     input:
-        rna_type=chunk_rna_types,
+        rna_type="results/chunks/rna_type/{chunk}.done",
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
@@ -32,7 +32,7 @@ rule label_tissue:
 
 rule label_germplasm:
     input:
-        rna_type=chunk_rna_types,
+        rna_type="results/chunks/rna_type/{chunk}.done",
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
@@ -57,7 +57,7 @@ rule label_germplasm:
 
 rule label_exposure:
     input:
-        rna_type=chunk_rna_types,
+        rna_type="results/chunks/rna_type/{chunk}.done",
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
@@ -79,7 +79,7 @@ rule label_exposure:
 
 rule label_study_condition:
     input:
-        rna_type=chunk_rna_types,
+        rna_type="results/chunks/rna_type/{chunk}.done",
         biosample=chunk_biosamples,
         sra=chunk_sra,
         summary=chunk_summaries,
@@ -99,7 +99,7 @@ rule label_study_condition:
 
 rule aggregate:
     input:
-        rna_type=expand("results/rna_type/{run}.json", run=RUNS),
+        rna_type=expand("results/chunks/rna_type/{chunk}.done", chunk=CHUNK_IDS),
         tissue=expand("results/chunks/tissue/{chunk}.done", chunk=CHUNK_IDS),
         germplasm=expand("results/chunks/germplasm/{chunk}.done", chunk=CHUNK_IDS),
         exposure=expand("results/chunks/exposure/{chunk}.done", chunk=CHUNK_IDS),

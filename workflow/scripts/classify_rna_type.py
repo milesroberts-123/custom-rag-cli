@@ -326,13 +326,9 @@ from script_logging import setup as _setup
 LOGGER = _setup("classify_rna_type")
 
 
-def main():
-    with open(snakemake.input.biosample) as handle:
-        biosample = json.load(handle)
-    with open(snakemake.input.sra) as handle:
-        sra = json.load(handle)
-
-    attribute_keys = list(snakemake.params.attribute_keys)
+def _classify_one(run, biosample, sra, params):
+    """Classify one run's RNA type; returns the result dict."""
+    attribute_keys = list(params["attribute_keys"])
     lines = _evidence_lines(biosample, sra, attribute_keys)
     classification = _classify_rules(biosample, sra, attribute_keys)
     if classification is None:
@@ -346,14 +342,14 @@ def main():
     if category == UNKNOWN:
         source = "rules_conflict"
     elif category is None:
-        if snakemake.params.backend != "rules" and lines:
+        if params["backend"] != "rules" and lines:
             fell_back = False
-            if snakemake.params.backend == "decision":
+            if params["backend"] == "decision":
                 try:
                     category, confidence, probabilities = _decision(
-                        snakemake.params.server_url,
-                        snakemake.params.api_key,
-                        snakemake.params.decision_model,
+                        params["server_url"],
+                        params["api_key"],
+                        params["decision_model"],
                         _state(lines, sra),
                     )
                     source = "decision"
@@ -365,12 +361,12 @@ def main():
                     )
                     fell_back = True
 
-            if snakemake.params.backend == "chat" or fell_back:
+            if params["backend"] == "chat" or fell_back:
                 category, subtype, chat_confidence, evidence = _chat(
-                    snakemake.params.server_url,
-                    snakemake.params.api_key,
-                    snakemake.params.model,
-                    snakemake.params.model_params,
+                    params["server_url"],
+                    params["api_key"],
+                    params["model"],
+                    params["model_params"],
                     lines,
                 )
                 confidence = chat_confidence
@@ -390,19 +386,16 @@ def main():
     if (
         source in {"decision", "chat", "chat_fallback"}
         and category != UNKNOWN
-        and (
-            confidence is None
-            or float(confidence) < float(snakemake.params.min_confidence)
-        )
+        and (confidence is None or float(confidence) < float(params["min_confidence"]))
     ):
         category = UNKNOWN
         subtype = None
         source = "low_confidence"
-        evidence = f"model confidence below {snakemake.params.min_confidence}"
+        evidence = f"model confidence below {params['min_confidence']}"
 
-    eligible_types = set(snakemake.params.accepted_rna_types)
-    result = {
-        "run": snakemake.wildcards.run,
+    eligible_types = set(params["accepted_rna_types"])
+    return {
+        "run": run,
         "rna_type": category,
         "rna_subtype": subtype,
         "ribo_depleted": category == RIBO,
@@ -414,17 +407,32 @@ def main():
         "attribute_values": lines,
     }
 
-    LOGGER.info(
-        "%s: rna_type=%s%s (source=%s, confidence=%s)",
-        snakemake.wildcards.run,
-        category,
-        f":{subtype}" if subtype else "",
-        source,
-        confidence,
-    )
-    output = Path(snakemake.output[0])
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+
+def main():
+    params = dict(snakemake.params)
+    for run, samn in zip(params["runs"], params["samns"]):
+        with open(f"results/metadata/biosample/{samn}.json") as handle:
+            biosample = json.load(handle)
+        with open(f"results/metadata/sra/{run}.json") as handle:
+            sra = json.load(handle)
+
+        result = _classify_one(run, biosample, sra, params)
+
+        LOGGER.info(
+            "%s: rna_type=%s%s (source=%s, confidence=%s)",
+            run,
+            result["rna_type"],
+            f":{result['rna_subtype']}" if result["rna_subtype"] else "",
+            result["source"],
+            result["confidence"],
+        )
+        output = Path(f"results/rna_type/{run}.json")
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
+
+    marker = Path(snakemake.output[0])
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    marker.write_text(json.dumps({"runs": len(params["runs"])}) + "\n")
 
 
 if __name__ == "__main__":

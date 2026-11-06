@@ -107,40 +107,78 @@ def test_rrna_depletion_does_not_become_small_rna():
 
 
 def test_main_writes_classification(tmp_path, monkeypatch):
-    biosample_path = tmp_path / "biosample.json"
-    sra_path = tmp_path / "sra.json"
-    output_path = tmp_path / "rna_type.json"
-    biosample_path.write_text(json.dumps({"attributes": {}}))
-    sra_path.write_text(
+    metadata = tmp_path / "results" / "metadata"
+    (metadata / "biosample").mkdir(parents=True)
+    (metadata / "sra").mkdir(parents=True)
+    (metadata / "biosample" / "SAMN1.json").write_text(json.dumps({"attributes": {}}))
+    (metadata / "sra" / "SRR1.json").write_text(
         json.dumps({"library_strategy": "RNA-Seq", "library_selection": "RiboZero"})
     )
+    marker_path = tmp_path / "results" / "chunks" / "rna_type" / "0.done"
+
+    monkeypatch.chdir(tmp_path)
     monkeypatch.setattr(
         rna,
         "snakemake",
         SimpleNamespace(
-            input=SimpleNamespace(biosample=str(biosample_path), sra=str(sra_path)),
-            output=[str(output_path)],
-            wildcards=SimpleNamespace(run="SRR1"),
-            params=SimpleNamespace(
-                backend="rules",
-                attribute_keys=KEYS,
-                accepted_rna_types=[rna.MRNA, rna.RIBO],
-                min_confidence=0.6,
-                server_url="",
-                api_key="",
-                decision_model="",
-                model="",
-                model_params={},
-            ),
+            output=[str(marker_path)],
+            params={
+                "runs": ["SRR1"],
+                "samns": ["SAMN1"],
+                "backend": "rules",
+                "attribute_keys": KEYS,
+                "accepted_rna_types": [rna.MRNA, rna.RIBO],
+                "min_confidence": 0.6,
+                "server_url": "",
+                "api_key": "",
+                "decision_model": "",
+                "model": "",
+                "model_params": {},
+            },
         ),
         raising=False,
     )
     rna.main()
+
+    output_path = tmp_path / "results" / "rna_type" / "SRR1.json"
     result = json.loads(output_path.read_text())
     assert result["rna_type"] == rna.RIBO
     assert result["ribo_depleted"] is True
     assert result["mrna_eligible"] is True
     assert result["source"] == "rules"
+    assert json.loads(marker_path.read_text())["runs"] == 1
+
+
+def test_classify_one_conflict_is_unknown():
+    params = {
+        "attribute_keys": KEYS,
+        "backend": "rules",
+        "accepted_rna_types": [rna.MRNA, rna.RIBO],
+        "min_confidence": 0.6,
+    }
+    result = rna._classify_one(
+        "SRR1",
+        {"attributes": {}},
+        {"library_strategy": "miRNA-Seq", "library_selection": "PolyA"},
+        params,
+    )
+    assert result["rna_type"] == rna.UNKNOWN
+    assert result["source"] == "rules_conflict"
+    assert result["mrna_eligible"] is False
+
+
+def test_classify_one_missing_metadata_is_unknown():
+    params = {
+        "attribute_keys": KEYS,
+        "backend": "rules",
+        "accepted_rna_types": [rna.MRNA, rna.RIBO],
+        "min_confidence": 0.6,
+    }
+    result = rna._classify_one(
+        "SRR2", {"attributes": {}}, {"library_strategy": "RNA-Seq"}, params
+    )
+    assert result["rna_type"] == rna.UNKNOWN
+    assert result["source"] == "missing_metadata"
 
 
 def test_exclusion_reasons():
