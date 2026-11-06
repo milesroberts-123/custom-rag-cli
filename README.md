@@ -304,6 +304,54 @@ review.
 `ribo_depleted`, `rna_type_source`, `rna_type_confidence`, `rna_type_evidence`,
 and `exclusion_reason`.
 
+## Gene expression quantification
+
+`rule quant_all` is a second target, not part of `rule all`: it quantifies every
+mRNA-eligible run from `results/labels.tsv` and is far heavier than labeling.
+
+```bash
+# one-off: build the target list (the DAG shape depends on library layout)
+python workflow/scripts/quant_prepare.py
+
+# then run it
+snakemake quant_all --profile workflow/profiles/default --resources quant_download=8
+```
+
+**Reads** come from ENA's `fastq_ftp` URLs when available (md5-verified,
+resumable) and fall back to `prefetch` + `fasterq-dump --split-3` otherwise.
+`fastp` trims each run — adapter auto-detection for paired-end, `--trim_poly_g`,
+`-q 15 -u 40 -l 36` — and **never** runs `--dedup`: duplicate reads in RNA-seq
+are usually biological, so only duplication *statistics* are collected.
+
+**Salmon** quantifies per BioSample, not per run: the trimmed FASTQs of all runs
+of a sample are passed as one library (`-1 a b -2 a b` / `-r a b`), so the TPM
+column is directly comparable and needs no recomputation. The index is
+decoy-aware with the whole genome as decoys (`salmon index -t gentrome -d
+decoys.txt`), the documented best practice; `-l A` infers library type per
+sample and is recorded in the QC table. Single-end libraries get Salmon's
+documented defaults `--fldMean 250 --fldSD 25` (`quant.se_fld_mean` /
+`quant.se_fld_sd`), because fragment length cannot be estimated from SE reads.
+
+**Mixed layouts**: a BioSample whose runs differ in layout (157 of 9,209
+multi-run samples in the current sheet) is quantified per run instead, and
+counts are summed at merge time with TPM recomputed from gene lengths. Those
+samples are marked `mode: per_run` in `results/quant/targets.tsv`.
+
+**TIN** (transcript integrity number) is computed from Salmon's
+`--writeMappings` BAM: per-transcript coverage gives `TIN = 100 ×
+mean(cov)/max(cov)`, and the sample metric is the median across transcripts with
+at least `quant.tin_min_coverage` reads. A 5′/3′ coverage skew is recorded
+alongside it as a degradation indicator.
+
+Outputs:
+
+| File | Contents |
+|---|---|
+| `results/quant/gene_counts.tsv` | genes × BioSamples, Salmon `NumReads` |
+| `results/quant/gene_tpm.tsv` | genes × BioSamples, TPM |
+| `results/quant/quant_qc.tsv` | per sample: mode, layout, n_runs, mapped %, inferred library type, medTIN, per-run fastp QC |
+| `results/quant/skipped.tsv` | runs excluded from quantification and why |
+
 ## Human review
 
 The Streamlit app in `review_app/` groups runs by BioProject, shows the linked

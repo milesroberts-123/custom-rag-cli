@@ -42,6 +42,15 @@ jobs:
         run: snakefmt --check workflow/
       - name: Lint
         run: bash scripts/lint-snakemake.sh
+      - name: Quant dry run
+        run: |
+          python workflow/scripts/quant_prepare.py \
+            --labels .test/fixtures/labels.tsv \
+            --runinfo .test/fixtures/runinfo.csv \
+            --output results/quant/targets.tsv \
+            --skipped results/quant/skipped.tsv
+          snakemake -n quant_all --cores 1
+
       - name: Dry run
         run: snakemake -n --cores 1
       - name: Catalog rulegraph

@@ -62,6 +62,7 @@ include: "rules/paper.smk"
 include: "rules/peco.smk"
 include: "rules/rna.smk"
 include: "rules/label.smk"
+include: "rules/quant.smk"
 
 
 rule all:

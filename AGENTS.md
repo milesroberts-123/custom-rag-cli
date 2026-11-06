@@ -124,6 +124,14 @@ lint/format/test checks in CI.
   evidence, project text only disambiguates. This stops replicate noise like
   window 3's `Warm_T_1/2/3` replicates receiving different term sets.
 
+- Gene quantification is a second target: `snakemake quant_all`, never part of
+  `rule all`. The DAG shape depends on library layout, so run
+  `python workflow/scripts/quant_prepare.py` first; it writes
+  `results/quant/targets.tsv`. Runs of a BioSample share one Salmon run (pooled
+  FASTQs), except the ~157 mixed-layout samples, which fall back to per-run
+  quant. `fastp` must never pass `--dedup` (RNA-seq duplicates are biological).
+  SE libraries use Salmon's defaults `--fldMean 250 --fldSD 25`.
+
 ## Review app
 
 - `review_app/` is a Streamlit app backed by SQLite at

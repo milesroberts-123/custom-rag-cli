@@ -105,6 +105,42 @@ properties:
       - min_interval_seconds
       - max_requests
       - timeout
+  quant:
+    type: object
+    properties:
+      targets:
+        type: string
+        default: results/quant/targets.tsv
+      reference_release:
+        type: integer
+      cdna_url:
+        type: string
+      genome_url:
+        type: string
+      gtf_url:
+        type: string
+      salmon_k:
+        type: integer
+        default: 31
+      threads:
+        type: integer
+        default: 8
+      se_fld_mean:
+        type: number
+        default: 250
+      se_fld_sd:
+        type: number
+        default: 25
+      tin_min_coverage:
+        type: integer
+        default: 10
+      scratch:
+        type: string
+    required:
+      - cdna_url
+      - genome_url
+      - gtf_url
+      - scratch
   tissue:
     type: object
     properties:
@@ -378,6 +414,7 @@ required:
   - peco
   - paper
   - athrdb
+  - quant
   - tissue
   - germplasm
   - rna_type

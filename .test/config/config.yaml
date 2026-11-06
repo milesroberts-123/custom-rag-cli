@@ -28,6 +28,18 @@ athrdb:
   max_requests: 3
   timeout: 60
 
+quant:
+  targets: results/quant/targets.tsv
+  reference_release: 60
+  cdna_url: https://example.invalid/cdna.fa.gz
+  genome_url: https://example.invalid/genome.fa.gz
+  gtf_url: https://example.invalid/annotation.gtf.gz
+  salmon_k: 31
+  threads: 2
+  se_fld_mean: 250
+  se_fld_sd: 25
+  tin_min_coverage: 10
+  scratch: /tmp/quant-tmp
 tissue:
   categories:
     - leaf

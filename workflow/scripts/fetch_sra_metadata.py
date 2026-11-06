@@ -19,12 +19,30 @@ ENA_FIELDS = (
     "library_strategy",
     "library_selection",
     "library_source",
+    "library_layout",
+    "fastq_ftp",
+    "fastq_md5",
+    "fastq_bytes",
     "library_name",
     "library_construction_protocol",
     "experiment_title",
     "study_title",
     "sample_title",
 )
+
+
+def _layout(library):
+    """Return SINGLE or PAIRED from an SRA LIBRARY_LAYOUT element."""
+    if library is None:
+        return ""
+    node = library.find("LIBRARY_LAYOUT")
+    if node is None:
+        return ""
+    if node.find("PAIRED") is not None:
+        return "PAIRED"
+    if node.find("SINGLE") is not None:
+        return "SINGLE"
+    return ""
 
 
 def _text(element, path):
@@ -79,6 +97,7 @@ def _parse(xml_bytes):
             "library_source": (
                 _text(library, "LIBRARY_SOURCE") if library is not None else ""
             ),
+            "library_layout": _layout(library),
             "library_construction_protocol": (
                 _text(library, "LIBRARY_CONSTRUCTION_PROTOCOL")
                 if library is not None
@@ -134,6 +153,10 @@ def _ena_record(accession, timeout=60):
         "library_strategy": row.get("library_strategy", ""),
         "library_selection": row.get("library_selection", ""),
         "library_source": row.get("library_source", ""),
+        "library_layout": (row.get("library_layout", "") or "").upper(),
+        "fastq_ftp": row.get("fastq_ftp", ""),
+        "fastq_md5": row.get("fastq_md5", ""),
+        "fastq_bytes": row.get("fastq_bytes", ""),
         "library_construction_protocol": row.get("library_construction_protocol", ""),
         "sample_accession": row.get("sample_accession", ""),
         "sample_name": row.get("sample_title", ""),
@@ -226,6 +249,7 @@ def main():
             "fetch_source": "missing",
             "sra_note": "no SRA record in the NCBI or ENA mirrors",
             "library_strategy": "",
+            "library_layout": "",
             "library_selection": "",
             "library_source": "",
         }

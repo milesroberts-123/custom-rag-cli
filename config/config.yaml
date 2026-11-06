@@ -49,6 +49,25 @@ athrdb:
   max_requests: 5000
   timeout: 60
 
+quant:
+  # Gene-expression subworkflow (rule quant_all). Prepare with
+  # `python workflow/scripts/quant_prepare.py` before the first run: the DAG
+  # shape depends on per-run library layout, which that step records in
+  # results/quant/targets.tsv.
+  targets: results/quant/targets.tsv
+  reference_release: 60
+  cdna_url: https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/fasta/arabidopsis_thaliana/cdna/Arabidopsis_thaliana.TAIR10.cdna.all.fa.gz
+  genome_url: https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/fasta/arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz
+  gtf_url: https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/gtf/arabidopsis_thaliana/Arabidopsis_thaliana.TAIR10.60.gtf.gz
+  salmon_k: 31
+  threads: 8
+  # Single-end libraries: Salmon cannot estimate fragment length, so the
+  # insert-size distribution is a configured assumption (documented default).
+  se_fld_mean: 250
+  se_fld_sd: 25
+  tin_min_coverage: 10
+  scratch: /global/scratch/users/milesroberts/quant-tmp
+
 tissue:
   # The paper's six categories, with flower and fruit separated.
   categories:
