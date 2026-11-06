@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+from chunk_runner import run_chunk
+
 from evidence import evidence_lines, merge_sra
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
@@ -310,7 +312,10 @@ def _label_one(samn, runs, inputs, params):
 
 def main():
     params = dict(snakemake.params)
-    for samn, runs, prjna in zip(params["samns"], params["runs"], params["prjnas"]):
+    items = list(zip(params["samns"], params["runs"], params["prjnas"]))
+
+    def process(item):
+        samn, runs, prjna = item
         _label_one(
             samn,
             runs,
@@ -324,9 +329,27 @@ def main():
             params,
         )
 
-    marker = Path(snakemake.output[0])
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
+    def stub(item, error):
+        samn, runs, _ = item
+        return {
+            "biosample": samn,
+            "run": runs[0] if runs else None,
+            "layer": "germplasm",
+            "germplasm_type": "unknown",
+            "is_natural_accession": False,
+            "source": "error",
+            "confidence": None,
+            "evidence": error,
+        }
+
+    run_chunk(
+        items,
+        lambda item: f"results/germplasm/{item[0]}.json",
+        process,
+        stub,
+        snakemake.output[0],
+        LOGGER,
+    )
 
 
 if __name__ == "__main__":

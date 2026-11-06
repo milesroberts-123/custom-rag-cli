@@ -100,7 +100,14 @@ lint/format/test checks in CI.
   shape (`results/{kind}/{samn}.json`), and `labels.tsv` keeps one row per
   run. Per-run keying gave runs of one sample different exposure term sets
   (87% of multi-run samples), so do not reintroduce it. A failed chunk redoes
-  up to `label_chunk_size` samples.
+  up to `label_chunk_size` samples, and samples whose output already
+  exists are skipped, so a retried chunk only redoes the tail.
+- Labeler chunks are fail-soft: a sample the model cannot label gets a
+  stub (`source: "error"`) plus review flags instead of failing the
+  chunk, and the marker records `written`/`skipped`/`failures`.
+  `llm.chat_json` escalates `num_predict` once when Ollama reports
+  `done_reason: "length"` (truncated JSON) before raising
+  `TruncatedResponse`.
 - Tissue and germplasm rules read structured attribute fields only
   (`tissue.rule_attribute_keys` / `germplasm.rule_attribute_keys`); study
   titles/abstracts, library names, and experiment titles are model evidence,

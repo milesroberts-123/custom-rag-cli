@@ -5,6 +5,7 @@ import re
 from pathlib import Path
 
 import numpy as np
+from chunk_runner import run_chunk
 from sentence_transformers import SentenceTransformer
 
 from evidence import evidence_lines, exposure_evidence, merge_sra
@@ -35,7 +36,9 @@ Annotation guidance:
   a term that per-sample evidence already suggests; it is never the sole basis
   for a term. If a condition appears only in project-level text and the
   per-sample evidence is silent, do not select it.
-- Cite the supporting per-sample evidence in each term's "evidence" field.
+- Cite the supporting per-sample evidence in each term's "evidence" field, in
+  at most 120 characters. Do not paste long attribute values or library names.
+- Select at most 5 terms.
 - Do not co-select "temperature exposure" with a biotic exposure term (insect,
   fungal, bacterial, metazoan, pathogen, or similar) unless the per-sample
   evidence names the organism.
@@ -224,6 +227,7 @@ def _label_one(
                     params["model"],
                     messages,
                     params["model_params"],
+                    max_tokens=int(params.get("max_tokens", 2048)),
                 ),
                 candidate_ids,
                 term_by_id,
@@ -282,7 +286,10 @@ def main():
     # The encoder is the expensive per-job constant; load it once per chunk.
     model = SentenceTransformer(params["embed_model"])
     ancestors = ancestor_map(terms)
-    for samn, runs, prjna in zip(params["samns"], params["runs"], params["prjnas"]):
+    items = list(zip(params["samns"], params["runs"], params["prjnas"]))
+
+    def process(item):
+        samn, runs, prjna = item
         _label_one(
             samn,
             runs,
@@ -301,9 +308,29 @@ def main():
             ancestors,
         )
 
-    marker = Path(snakemake.output[0])
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
+    def stub(item, error):
+        samn, runs, _ = item
+        return {
+            "biosample": samn,
+            "run": runs[0] if runs else None,
+            "layer": "exposure",
+            "source": "error",
+            "error": error,
+            "no_condition": False,
+            "other": True,
+            "suggested_label": "",
+            "terms": [],
+            "max_retrieval_score": None,
+        }
+
+    run_chunk(
+        items,
+        lambda item: f"results/exposure/{item[0]}.json",
+        process,
+        stub,
+        snakemake.output[0],
+        LOGGER,
+    )
 
 
 if __name__ == "__main__":

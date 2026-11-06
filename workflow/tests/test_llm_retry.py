@@ -166,3 +166,36 @@ def test_chat_json_raises_on_ollama_error_body(monkeypatch):
     )
     with pytest.raises(RuntimeError, match="model not found"):
         llm.chat_json("http://x", "k", "m", _messages())
+
+
+def test_chat_json_escalates_on_truncation(monkeypatch):
+    payloads = []
+
+    def fake_post(url, json=None, headers=None, timeout=None):
+        # Snapshot the option: the caller reuses the payload dict across attempts.
+        payloads.append({"num_predict": json["options"]["num_predict"]})
+        if len(payloads) == 1:
+            return _Response(
+                content={
+                    "message": {"content": '{"terms": ["PECO:1'},
+                    "done_reason": "length",
+                }
+            )
+        return _Response()
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    result = llm.chat_json("http://x", "k", "m", _messages(), max_tokens=256)
+    assert result == {"ok": True}
+    assert payloads[0]["num_predict"] == 256
+    assert payloads[1]["num_predict"] == 512
+
+
+def test_chat_json_raises_when_still_truncated(monkeypatch):
+    def fake_post(url, json=None, headers=None, timeout=None):
+        return _Response(
+            content={"message": {"content": '{"a": 1'}, "done_reason": "length"}
+        )
+
+    monkeypatch.setattr(llm.requests, "post", fake_post)
+    with pytest.raises(llm.TruncatedResponse):
+        llm.chat_json("http://x", "k", "m", _messages(), max_tokens=4096)

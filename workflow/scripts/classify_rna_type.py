@@ -5,6 +5,8 @@ import re
 import sys
 from pathlib import Path
 
+from chunk_runner import run_chunk
+
 from evidence import merge_sra
 from llm import chat_json, systemone
 
@@ -412,7 +414,10 @@ def _classify_one(samn, run, biosample, sra, params):
 
 def main():
     params = dict(snakemake.params)
-    for samn, runs in zip(params["samns"], params["runs"]):
+    items = list(zip(params["samns"], params["runs"]))
+
+    def process(item):
+        samn, runs = item
         sras = []
         for run in runs:
             with open(f"results/metadata/sra/{run}.json") as handle:
@@ -468,9 +473,31 @@ def main():
         output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(json.dumps(result, indent=2, sort_keys=True) + "\n")
 
-    marker = Path(snakemake.output[0])
-    marker.parent.mkdir(parents=True, exist_ok=True)
-    marker.write_text(json.dumps({"samples": len(params["samns"])}) + "\n")
+    def stub(item, error):
+        samn, runs = item
+        return {
+            "biosample": samn,
+            "run": runs[0] if runs else None,
+            "runs": list(runs),
+            "rna_type": UNKNOWN,
+            "rna_subtype": None,
+            "ribo_depleted": False,
+            "mrna_eligible": False,
+            "confidence": None,
+            "probabilities": None,
+            "source": "error",
+            "evidence": error,
+            "attribute_values": [],
+        }
+
+    run_chunk(
+        items,
+        lambda item: f"results/rna_type/{item[0]}.json",
+        process,
+        stub,
+        snakemake.output[0],
+        LOGGER,
+    )
 
 
 if __name__ == "__main__":

@@ -76,6 +76,10 @@ def _extract_json(text):
     return fenced.group(1) if fenced else text
 
 
+class TruncatedResponse(RuntimeError):
+    """The model hit the generation cap before finishing its JSON reply."""
+
+
 def chat_json(
     server_url,
     api_key,
@@ -106,32 +110,50 @@ def chat_json(
         "stream": False,
         "format": "json",
         "think": think,
-        "options": options,
+        "options": dict(options),
     }
     headers = {"Authorization": f"Bearer {_key(api_key)}"}
     url = f"{_server(server_url)}/api/chat"
 
     delay = 5.0
-    for attempt in range(retries):
-        try:
-            response = requests.post(
-                url, json=payload, headers=headers, timeout=(30, 600)
-            )
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
-            if attempt == retries - 1:
-                raise
-            time.sleep(delay)
-            delay *= 2
-            continue
-        if response.status_code in RETRYABLE_STATUS and attempt < retries - 1:
-            time.sleep(delay)
-            delay *= 2
-            continue
-        response.raise_for_status()
-        break
+    escalated = False
+    while True:
+        for attempt in range(retries):
+            try:
+                response = requests.post(
+                    url, json=payload, headers=headers, timeout=(30, 600)
+                )
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+                if attempt == retries - 1:
+                    raise
+                time.sleep(delay)
+                delay *= 2
+                continue
+            if response.status_code in RETRYABLE_STATUS and attempt < retries - 1:
+                time.sleep(delay)
+                delay *= 2
+                continue
+            response.raise_for_status()
+            break
 
-    body = response.json()
-    if "error" in body:
-        raise RuntimeError(f"Ollama error: {body['error']}")
-    content = body.get("message", {}).get("content") or ""
-    return json.loads(_extract_json(content))
+        body = response.json()
+        if "error" in body:
+            raise RuntimeError(f"Ollama error: {body['error']}")
+        content = body.get("message", {}).get("content") or ""
+
+        # A truncated reply parses as "Unterminated string", which is
+        # indistinguishable from a malformed answer. Ollama tells us the cap
+        # was hit, so retry once with twice the budget before giving up.
+        if body.get("done_reason") == "length":
+            if not escalated and max_tokens < 4096:
+                escalated = True
+                max_tokens = min(max_tokens * 2, 4096)
+                options["num_predict"] = max_tokens
+                payload["options"] = dict(options)
+                continue
+            raise TruncatedResponse(
+                f"model {model} hit the {max_tokens}-token generation cap "
+                "before finishing its JSON reply"
+            )
+
+        return json.loads(_extract_json(content))
