@@ -11,7 +11,10 @@ slurm-qos: moilab_htc4_normal
 default-resources:
   slurm_account: co_moilab
   slurm_partition: savio4_htc
-  mem_mb: 4000
+  # Savio derives memory from the CPU count on the HTC partitions, so never
+  # request it explicitly: 0 keeps the executor from emitting --mem at all
+  # (any other value would be a second, conflicting request).
+  mem_mb: 0
   runtime: 720
 # Threads are declared here rather than in the rules. Do not add cpus_per_task
 # to default-resources: the Slurm plugin derives it from these thread counts.
@@ -24,19 +27,14 @@ set-threads:
   - merge_quant=4
 set-resources:
   salmon_index:
-    mem_mb: 32000
     runtime: 240
   quant_sample:
-    mem_mb: 16000
     runtime: 720
   quant_sample_run:
-    mem_mb: 16000
     runtime: 720
   compute_tin:
-    mem_mb: 8000
     runtime: 240
   compute_tin_run:
-    mem_mb: 8000
     runtime: 240
   fetch_fastq_single:
     runtime: 1440

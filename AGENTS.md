@@ -140,7 +140,9 @@ lint/format/test checks in CI.
   8 for Salmon/fastp, 4 for TIN) together with per-rule memory and runtimes;
   rules only use `{threads}`. Never reintroduce thread counts in `config.yaml`
   or `params`, and never add `cpus_per_task` to `default-resources` — the Slurm
-  plugin derives it from `set-threads`. Quantification is invoked with
+  plugin derives it from `set-threads`. `default-resources` keeps `mem_mb: 0`
+  because Savio's HTC partitions derive memory from the CPU count — any other
+  value would be a second, conflicting request. Quantification is invoked with
   `--jobs 4 --cores 32`: `--cores` must cover the largest thread request or
   Snakemake clamps it, and `--jobs` sets concurrency. Trimming and Salmon share
   one job per sample, raw FASTQs are `temp()`, fastp reports live inside the
