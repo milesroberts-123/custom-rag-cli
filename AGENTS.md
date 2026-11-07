@@ -136,6 +136,16 @@ lint/format/test checks in CI.
   quant. `fastp` must never pass `--dedup` (RNA-seq duplicates are biological).
   SE libraries use Salmon's defaults `--fldMean 250 --fldSD 25`.
 
+- Thread counts live in `workflow/profiles/default/config.yaml` (`set-threads`:
+  8 for Salmon/fastp, 4 for TIN) together with per-rule memory and runtimes;
+  rules only use `{threads}`. Never reintroduce thread counts in `config.yaml`
+  or `params`, and never add `cpus_per_task` to `default-resources` — the Slurm
+  plugin derives it from `set-threads`. Quantification is invoked with
+  `--jobs 4 --cores 32`: `--cores` must cover the largest thread request or
+  Snakemake clamps it, and `--jobs` sets concurrency. Trimming and Salmon share
+  one job per sample, raw FASTQs are `temp()`, fastp reports live inside the
+  sample's quant directory, and trimmed reads are deleted when the job succeeds.
+
 ## Review app
 
 - `review_app/` is a Streamlit app backed by SQLite at

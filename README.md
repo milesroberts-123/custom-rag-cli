@@ -319,14 +319,32 @@ mRNA-eligible run from `results/labels.tsv` and is far heavier than labeling.
 python workflow/scripts/quant_prepare.py
 
 # then run it
-snakemake quant_all --profile workflow/profiles/default --resources quant_download=8
+snakemake quant_all --jobs 4 --cores 32 --resources quant_download=8
 ```
+
+**Threads live in the profile, not the rules.**
+`workflow/profiles/default/config.yaml` declares `set-threads` (8 for Salmon and
+fastp, 4 for TIN) plus per-rule memory and runtimes; rules only reference
+`{threads}`, so tuning concurrency never touches workflow code. `--cores` must be
+at least the largest thread request (Snakemake clamps threads to it), and
+`--jobs` sets how many jobs run at once — 4 jobs x 8 threads = 32 cores. Do not
+add `cpus_per_task` to the profile's `default-resources`: the Slurm plugin
+derives it from the thread counts.
 
 **Reads** come from ENA's `fastq_ftp` URLs when available (md5-verified,
 resumable) and fall back to `prefetch` + `fasterq-dump --split-3` otherwise.
 `fastp` trims each run — adapter auto-detection for paired-end, `--trim_poly_g`,
 `-q 15 -u 40 -l 36` — and **never** runs `--dedup`: duplicate reads in RNA-seq
 are usually biological, so only duplication *statistics* are collected.
+
+**One job per sample**: trimming and Salmon run in the same job, so the trimmed
+FASTQs never become persistent outputs — they are written under the sample's
+quant directory, fed straight to Salmon, and deleted when the job succeeds.
+Raw FASTQs are declared `temp()` for the same reason, which removes the
+terabyte-scale intermediate storage a separate trim stage would leave behind.
+`quant.trim_fastq_compress: false` (default) writes trimmed reads uncompressed:
+fastp skips `pigz` and Salmon skips decompression, at the cost of temporary disk
+inside the job only.
 
 **Salmon** quantifies per BioSample, not per run: the trimmed FASTQs of all runs
 of a sample are passed as one library (`-1 a b -2 a b` / `-r a b`), so the TPM

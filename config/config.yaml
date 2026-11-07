@@ -62,7 +62,11 @@ quant:
   genome_url: https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/fasta/arabidopsis_thaliana/dna/Arabidopsis_thaliana.TAIR10.dna.toplevel.fa.gz
   gtf_url: https://ftp.ensemblgenomes.ebi.ac.uk/pub/plants/release-60/gtf/arabidopsis_thaliana/Arabidopsis_thaliana.TAIR10.60.gtf.gz
   salmon_k: 31
-  threads: 8
+  # Threads per job live in workflow/profiles/quant/config.yaml (`set-threads`),
+  # together with the job count; keep the two in step (jobs x threads <= cores).
+  # Write trimmed reads uncompressed: fastp avoids pigz and Salmon avoids
+  # decompression, at the cost of temporary disk inside the quant directory.
+  trim_fastq_compress: false
   # Single-end libraries: Salmon cannot estimate fragment length, so the
   # insert-size distribution is a configured assumption (documented default).
   se_fld_mean: 250

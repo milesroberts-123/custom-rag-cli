@@ -10,9 +10,19 @@ comparable — no cross-run TPM recomputation. Samples whose runs differ in
 library layout fall back to per-run quantification, summed at merge time.
 """
 
+import sys
 from pathlib import Path
 
 import pandas as pd
+
+sys.path.insert(0, str(Path(workflow.basedir) / "scripts"))
+
+from quant_commands import (  # noqa: E402
+    fastp_command,
+    salmon_command,
+    to_bam_command,
+    trimmed_paths,
+)
 
 QUANT_TARGETS = Path(config["quant"]["targets"])
 QUANT_COLUMNS = [
@@ -85,29 +95,88 @@ QUANT_RUNS_SE = [run for run in QUANT_RUNS if layout_of(run) != "PAIRED"]
 QUANT_RUNS_PE = [run for run in QUANT_RUNS if layout_of(run) == "PAIRED"]
 
 
-def trimmed_files(run):
-    """Trimmed FASTQ paths for one run, in the layout's canonical shape."""
+def raw_files(run):
+    """Raw FASTQ paths for one run, in the layout's canonical shape."""
     if layout_of(run) == "PAIRED":
         return [
-            f"results/quant/trimmed/{run}_R1.trim.fq.gz",
-            f"results/quant/trimmed/{run}_R2.trim.fq.gz",
+            f"results/quant/raw/{run}_R1.fq.gz",
+            f"results/quant/raw/{run}_R2.fq.gz",
         ]
-    return [f"results/quant/trimmed/{run}.se.trim.fq.gz"]
+    return [f"results/quant/raw/{run}.se.fq.gz"]
 
 
-def sample_trimmed(samn):
-    """All trimmed FASTQs for a pooled sample, ordered R1s then R2s."""
+def sample_raw(samn):
+    """All raw FASTQs for a pooled sample, ordered R1s then R2s."""
     runs = quant_runs_of(samn)
     if layout_of(runs[0]) == "PAIRED":
-        left = [f"results/quant/trimmed/{run}_R1.trim.fq.gz" for run in runs]
-        right = [f"results/quant/trimmed/{run}_R2.trim.fq.gz" for run in runs]
+        left = [f"results/quant/raw/{run}_R1.fq.gz" for run in runs]
+        right = [f"results/quant/raw/{run}_R2.fq.gz" for run in runs]
         return left + right
-    return [f"results/quant/trimmed/{run}.se.trim.fq.gz" for run in runs]
+    return [f"results/quant/raw/{run}.se.fq.gz" for run in runs]
 
 
-def run_trimmed(run):
-    """Trimmed FASTQs for one run (per-run mode)."""
-    return trimmed_files(run)
+def fastp_json(quant_dir, run):
+    """Per-run fastp QC report, kept inside the sample's quant directory.
+
+    It lives under the rule's directory output rather than as a separate named
+    output: Snakemake 9 rejects output functions, and the sample list is only
+    known per wildcard.
+    """
+    return Path(quant_dir) / "fastp" / f"{run}.fastp.json"
+
+
+def _trim_dir(quant_dir):
+    """Scratch directory for this job's trimmed reads (deleted on success)."""
+    return Path(quant_dir) / "trim"
+
+
+def _trim_and_quant(quant_dir, runs, index, tx2gene, threads, fld_mean, fld_sd):
+    """Trim every run of one library, then quantify the pooled library once."""
+    layout = layout_of(runs[0])
+    trim_dir = _trim_dir(quant_dir)
+    shell(f"mkdir -p {trim_dir} {quant_dir}")
+
+    trimmed = []
+    for run in runs:
+        raw_paths = raw_files(run)
+        json_path = fastp_json(quant_dir, run)
+        shell(f"mkdir -p {json_path.parent}")
+        shell(
+            fastp_command(
+                run,
+                layout,
+                raw_paths,
+                trim_dir,
+                json_path,
+                trim_dir / f"{run}.fastp.log",
+                threads,
+                config["quant"].get("trim_fastq_compress", False),
+            )
+        )
+        trimmed.extend(
+            trimmed_paths(
+                run,
+                layout,
+                trim_dir,
+                config["quant"].get("trim_fastq_compress", False),
+            )
+        )
+
+    shell(
+        salmon_command(
+            quant_dir,
+            trimmed,
+            layout,
+            index,
+            tx2gene,
+            threads,
+            fld_mean,
+            fld_sd,
+        )
+    )
+    shell(to_bam_command(quant_dir))
+    # Trimmed reads are scratch: the SAM-derived BAM is all TIN needs.
+    shell(f"rm -rf {trim_dir}")
 
 
 rule fetch_cdna:
@@ -169,10 +238,9 @@ rule salmon_index:
         "../envs/quant_salmon.yaml"
     params:
         k=config["quant"]["salmon_k"],
-        threads=config["quant"]["threads"],
     shell:
         "salmon index -t {input[0]} -d {input[1]} -i {output} "
-        "-k {params.k} -p {params.threads}"
+        "-k {params.k} -p {threads}"
 
 
 rule tx2gene:
@@ -190,7 +258,7 @@ rule fetch_fastq_single:
     input:
         metadata="results/metadata/sra/{run}.json",
     output:
-        "results/quant/raw/{run}.se.fq.gz",
+        temp("results/quant/raw/{run}.se.fq.gz"),
     conda:
         "../envs/quant_reads.yaml"
     resources:
@@ -210,8 +278,8 @@ rule fetch_fastq_paired:
     input:
         metadata="results/metadata/sra/{run}.json",
     output:
-        "results/quant/raw/{run}_R1.fq.gz",
-        "results/quant/raw/{run}_R2.fq.gz",
+        temp("results/quant/raw/{run}_R1.fq.gz"),
+        temp("results/quant/raw/{run}_R2.fq.gz"),
     conda:
         "../envs/quant_reads.yaml"
     resources:
@@ -227,82 +295,9 @@ rule fetch_fastq_paired:
         "../scripts/fetch_fastq.py"
 
 
-rule trim_fastq_single:
+rule quant_sample:
     input:
-        "results/quant/raw/{run}.se.fq.gz",
-    output:
-        "results/quant/trimmed/{run}.se.trim.fq.gz",
-        "results/quant/fastp/se/{run}.fastp.json",
-    conda:
-        "../envs/quant_reads.yaml"
-    params:
-        threads=config["quant"]["threads"],
-    shell:
-        "mkdir -p results/quant/trimmed results/quant/fastp && "
-        "fastp -i {input} -o {output[0]} "
-        "-w {params.threads} -q 15 -u 40 -l 36 --trim_poly_g "
-        "--json {output[1]} "
-        "2> results/quant/fastp/se/{wildcards.run}.log"
-
-
-rule trim_fastq_paired:
-    input:
-        "results/quant/raw/{run}_R1.fq.gz",
-        "results/quant/raw/{run}_R2.fq.gz",
-    output:
-        "results/quant/trimmed/{run}_R1.trim.fq.gz",
-        "results/quant/trimmed/{run}_R2.trim.fq.gz",
-        "results/quant/fastp/pe/{run}.fastp.json",
-    conda:
-        "../envs/quant_reads.yaml"
-    params:
-        threads=config["quant"]["threads"],
-    shell:
-        "mkdir -p results/quant/trimmed results/quant/fastp && "
-        "fastp -i {input[0]} -I {input[1]} "
-        "-o {output[0]} -O {output[1]} "
-        "-w {params.threads} -q 15 -u 40 -l 36 --trim_poly_g "
-        "--detect_adapter_for_pe --json {output[2]} "
-        "2> results/quant/fastp/pe/{wildcards.run}.log"
-
-
-def salmon_command(output, reads, layout, params):
-    """Build the Salmon invocation for one library."""
-    parts = [
-        "salmon quant",
-        f"-i {params['index']}",
-        "-l A",
-        f"-p {params['threads']}",
-        "--gcBias",
-        "--seqBias",
-        f"-g {params['tx2gene']}",
-        f"--writeMappings={output}/mappings.sam",
-        f"-o {output}",
-    ]
-    if layout == "PAIRED":
-        half = len(reads) // 2
-        parts.append("-1 " + " ".join(reads[:half]))
-        parts.append("-2 " + " ".join(reads[half:]))
-    else:
-        parts.append("-r " + " ".join(reads))
-        parts.append(f"--fldMean {params['fld_mean']}")
-        parts.append(f"--fldSD {params['fld_sd']}")
-    return " ".join(parts)
-
-
-def to_bam(output):
-    """Convert the pseudoalignment SAM to a sorted, indexed BAM."""
-    return (
-        f"samtools view -b {output}/mappings.sam "
-        f"| samtools sort -o {output}/mappings.bam - && "
-        f"samtools index {output}/mappings.bam && "
-        f"rm -f {output}/mappings.sam"
-    )
-
-
-rule salmon_quant:
-    input:
-        reads=lambda wildcards: sample_trimmed(wildcards.samn),
+        reads=lambda wildcards: sample_raw(wildcards.samn),
         index="results/quant/index",
         tx2gene="results/quant/tx2gene.tsv",
     output:
@@ -310,35 +305,25 @@ rule salmon_quant:
     conda:
         "../envs/quant_salmon.yaml"
     params:
-        threads=config["quant"]["threads"],
         fld_mean=config["quant"]["se_fld_mean"],
         fld_sd=config["quant"]["se_fld_sd"],
-        layout=lambda wildcards: layout_of(quant_runs_of(wildcards.samn)[0]),
         index="results/quant/index",
         tx2gene="results/quant/tx2gene.tsv",
     run:
-        quant_dir = str(output[0])
-        shell(f"mkdir -p {quant_dir}")
-        shell(
-            salmon_command(
-                quant_dir,
-                list(input.reads),
-                params.layout,
-                {
-                    "index": params.index,
-                    "tx2gene": params.tx2gene,
-                    "threads": params.threads,
-                    "fld_mean": params.fld_mean,
-                    "fld_sd": params.fld_sd,
-                },
-            )
+        _trim_and_quant(
+            str(output[0]),
+            quant_runs_of(wildcards.samn),
+            params.index,
+            params.tx2gene,
+            threads,
+            params.fld_mean,
+            params.fld_sd,
         )
-        shell(to_bam(quant_dir))
 
 
-rule salmon_quant_run:
+rule quant_sample_run:
     input:
-        reads=lambda wildcards: run_trimmed(wildcards.run),
+        reads=lambda wildcards: raw_files(wildcards.run),
         index="results/quant/index",
         tx2gene="results/quant/tx2gene.tsv",
     output:
@@ -346,30 +331,20 @@ rule salmon_quant_run:
     conda:
         "../envs/quant_salmon.yaml"
     params:
-        threads=config["quant"]["threads"],
         fld_mean=config["quant"]["se_fld_mean"],
         fld_sd=config["quant"]["se_fld_sd"],
-        layout=lambda wildcards: layout_of(wildcards.run),
         index="results/quant/index",
         tx2gene="results/quant/tx2gene.tsv",
     run:
-        quant_dir = str(output[0])
-        shell(f"mkdir -p {quant_dir}")
-        shell(
-            salmon_command(
-                quant_dir,
-                list(input.reads),
-                params.layout,
-                {
-                    "index": params.index,
-                    "tx2gene": params.tx2gene,
-                    "threads": params.threads,
-                    "fld_mean": params.fld_mean,
-                    "fld_sd": params.fld_sd,
-                },
-            )
+        _trim_and_quant(
+            str(output[0]),
+            [wildcards.run],
+            params.index,
+            params.tx2gene,
+            threads,
+            params.fld_mean,
+            params.fld_sd,
         )
-        shell(to_bam(quant_dir))
 
 
 rule compute_tin:
@@ -413,8 +388,6 @@ rule merge_quant:
         run_dirs=expand("results/quant/salmon_run/{run}", run=RUNS_WITH_MIXED),
         tin=expand("results/quant/tin/{samn}.json", samn=QUANT_POOL),
         tin_run=expand("results/quant/tin_run/{run}.json", run=RUNS_WITH_MIXED),
-        fastp_se=expand("results/quant/fastp/se/{run}.fastp.json", run=QUANT_RUNS_SE),
-        fastp_pe=expand("results/quant/fastp/pe/{run}.fastp.json", run=QUANT_RUNS_PE),
         sra=expand("results/metadata/sra/{run}.json", run=QUANT_RUNS),
     output:
         counts="results/quant/gene_counts.tsv",

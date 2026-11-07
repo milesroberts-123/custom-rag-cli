@@ -85,10 +85,11 @@ def main():
         tin[Path(path).stem] = read_json(path)
     fastp = {}
     layout = {}
-    for path in list(snakemake.input.fastp_se) + list(snakemake.input.fastp_pe):
-        record = read_json(path)
-        run = Path(path).name.replace(".fastp.json", "")
-        fastp[run] = record
+    # fastp reports are written inside each sample's quant directory, so they
+    # travel with the directory output instead of being separate rule outputs.
+    for directory in list(salmon_dirs.values()) + list(run_dirs.values()):
+        for path in sorted(directory.glob("fastp/*.fastp.json")):
+            fastp[path.name.replace(".fastp.json", "")] = read_json(path)
     for path in snakemake.input.sra:
         record = read_json(path)
         layout[record.get("run") or Path(path).stem] = record

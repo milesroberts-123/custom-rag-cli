@@ -77,7 +77,7 @@ Gene-expression subworkflow (`snakemake quant_all`).
 | `reference_release` | `60` | Ensembl Plants release recorded with the reference URLs. |
 | `cdna_url` / `genome_url` / `gtf_url` | Ensembl Plants TAIR10 r60 | Reference FASTA and annotation; the GTF must match the cDNA release. |
 | `salmon_k` | `31` | Salmon index k-mer size. |
-| `threads` | `8` | Threads for fastp and Salmon. |
+| `trim_fastq_compress` | `false` | Write trimmed reads as `.fq.gz` instead of plain `.fq`. Thread counts are not set here; they live in `workflow/profiles/quant/config.yaml` (`set-threads`). |
 | `se_fld_mean` | `250` | Assumed fragment length for single-end libraries (Salmon's documented default; SE reads cannot estimate it). |
 | `se_fld_sd` | `25` | Assumed fragment-length SD for single-end libraries. |
 | `tin_min_coverage` | `10` | Minimum reads per transcript before its TIN counts toward medTIN. |

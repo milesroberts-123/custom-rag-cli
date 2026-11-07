@@ -49,7 +49,7 @@ jobs:
             --runinfo .test/fixtures/runinfo.csv \
             --output results/quant/targets.tsv \
             --skipped results/quant/skipped.tsv
-          snakemake -n quant_all --cores 1
+          snakemake -n quant_all --cores 32
 
       - name: Dry run
         run: snakemake -n --cores 1

@@ -1,11 +1,44 @@
 executor: slurm
+# Concurrency is per invocation: labeling uses the full job count (all rules are
+# single-threaded). Quantification runs with `--jobs 4 --cores 32`: `--cores`
+# must cover the largest thread request (Snakemake clamps threads to it), and
+# `--jobs 4` keeps 4 x 8 threads = 32 cores in flight. Threads live in
+# `set-threads` below, never in rules.
 jobs: 16
-latency-wait: 60
+latency-wait: 120
 rerun-incomplete: true
 slurm-qos: moilab_htc4_normal
 default-resources:
   slurm_account: co_moilab
   slurm_partition: savio4_htc
-  cpus_per_task: 1
   mem_mb: 4000
   runtime: 720
+# Threads are declared here rather than in the rules. Do not add cpus_per_task
+# to default-resources: the Slurm plugin derives it from these thread counts.
+set-threads:
+  - salmon_index=8
+  - quant_sample=8
+  - quant_sample_run=8
+  - compute_tin=4
+  - compute_tin_run=4
+  - merge_quant=4
+set-resources:
+  salmon_index:
+    mem_mb: 32000
+    runtime: 240
+  quant_sample:
+    mem_mb: 16000
+    runtime: 720
+  quant_sample_run:
+    mem_mb: 16000
+    runtime: 720
+  compute_tin:
+    mem_mb: 8000
+    runtime: 240
+  compute_tin_run:
+    mem_mb: 8000
+    runtime: 240
+  fetch_fastq_single:
+    runtime: 1440
+  fetch_fastq_paired:
+    runtime: 1440

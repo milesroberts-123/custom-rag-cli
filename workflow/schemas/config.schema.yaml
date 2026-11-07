@@ -126,9 +126,9 @@ properties:
       salmon_k:
         type: integer
         default: 31
-      threads:
-        type: integer
-        default: 8
+      trim_fastq_compress:
+        type: boolean
+        default: false
       se_fld_mean:
         type: number
         default: 250
