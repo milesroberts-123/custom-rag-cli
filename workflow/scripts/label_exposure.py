@@ -6,6 +6,7 @@ from pathlib import Path
 
 import numpy as np
 from chunk_runner import run_chunk
+from exposure_validation import validate_exposure_response
 from sentence_transformers import SentenceTransformer
 
 from evidence import evidence_lines, exposure_evidence, merge_sra
@@ -119,53 +120,6 @@ def _candidates(query_text, synonyms, terms, embeddings, model, top_k, allowed_i
     return selected, max_score
 
 
-def _as_bool(value):
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() in ("true", "yes", "1")
-    return bool(value)
-
-
-def _validate(parsed, candidate_ids, term_by_id):
-    terms = parsed.get("terms")
-    if not isinstance(terms, list):
-        raise ValueError("response has no 'terms' list")
-
-    cleaned = []
-    for item in terms:
-        if not isinstance(item, dict):
-            raise ValueError("term entries must be objects")
-        term_id = str(item.get("term_id", "")).strip()
-        if term_id not in candidate_ids:
-            raise ValueError(f"term_id {term_id!r} is not in the candidate list")
-        evidence = str(item.get("evidence", "")).strip()
-        if not evidence:
-            raise ValueError(f"term {term_id} has no evidence")
-        cleaned.append(
-            {
-                "term_id": term_id,
-                "label": term_by_id[term_id]["label"],
-                "evidence": evidence,
-            }
-        )
-
-    no_condition = _as_bool(parsed.get("no_condition", False))
-    other = _as_bool(parsed.get("other", False))
-    suggested = parsed.get("suggested_label")
-    suggested = suggested.strip() if isinstance(suggested, str) else ""
-
-    if other and no_condition:
-        raise ValueError("'other' and 'no_condition' cannot both be true")
-    if other and cleaned:
-        raise ValueError("'other' cannot be combined with selected terms")
-    if not cleaned and not (other or no_condition):
-        raise ValueError("empty terms list without other=true or no_condition=true")
-    if not other:
-        suggested = ""
-    return cleaned, no_condition, other, suggested
-
-
 from script_logging import setup as _setup
 
 LOGGER = _setup("label_exposure")
@@ -218,19 +172,22 @@ def _label_one(
     no_condition = False
     other = False
     suggested_label = ""
+    conflicts = []
     for _ in range(3):
         try:
-            selected, no_condition, other, suggested_label = _validate(
-                chat_json(
-                    params["server_url"],
-                    params["api_key"],
-                    params["model"],
-                    messages,
-                    params["model_params"],
-                    max_tokens=int(params.get("max_tokens", 2048)),
-                ),
-                candidate_ids,
-                term_by_id,
+            selected, no_condition, other, suggested_label, conflicts = (
+                validate_exposure_response(
+                    chat_json(
+                        params["server_url"],
+                        params["api_key"],
+                        params["model"],
+                        messages,
+                        params["model_params"],
+                        max_tokens=int(params.get("max_tokens", 2048)),
+                    ),
+                    candidate_ids,
+                    term_by_id,
+                )
             )
             break
         except ValueError as error:
@@ -258,6 +215,7 @@ def _label_one(
         "n_candidates": len(candidates),
         "no_condition": no_condition,
         "other": other,
+        "resolved_conflicts": conflicts,
         "suggested_label": suggested_label,
         "max_retrieval_score": round(max_score, 4),
         "pruned_ancestors": pruned,
@@ -266,13 +224,15 @@ def _label_one(
     }
 
     LOGGER.info(
-        "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s, pruned=%d)",
+        "%s: %d exposure terms (no_condition=%s, other=%s, max_score=%s, "
+        "pruned=%d, conflicts=%s)",
         samn,
         len(selected),
         no_condition,
         other,
         max_score,
         len(pruned),
+        conflicts,
     )
     output = Path(inputs["output"])
     output.parent.mkdir(parents=True, exist_ok=True)

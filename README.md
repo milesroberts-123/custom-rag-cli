@@ -297,12 +297,13 @@ libraries as natural accessions.
 - `has_paper`, `paper_low_confidence`
 - `review_required`, `review_reasons`
 
-Review reasons: `rna_type_low_confidence`, `tissue_other`,
-`tissue_low_confidence`, `germplasm_unknown`, `germplasm_low_confidence`,
-`exposure_other`, `exposure_weak_retrieval`, `study_other`,
-`study_low_confidence`, `athrdb_disagreement`, `mixed_run_context`. Paper availability is reported
-in the `has_paper`/`paper_low_confidence` columns but does not itself trigger
-review.
+Review is gated on model uncertainty only. Review reasons:
+`rna_type_low_confidence`, `tissue_low_confidence`,
+`germplasm_low_confidence`, `exposure_weak_retrieval`, `study_low_confidence`,
+`athrdb_disagreement`, `mixed_run_context`. An `OTHER`/`unknown` label is a
+labeling result, not a review trigger: flagging those enqueued 94% of one
+window. Paper availability is reported in the `has_paper`/`paper_low_confidence`
+columns but does not itself trigger review.
 
 `results/labels.excluded.tsv` contains only non-eligible runs with `run`,
 `biosample`, `bioproject`, `species`, `rna_type`, `rna_subtype`,
@@ -472,6 +473,23 @@ Rules run on `savio4_htc` and connect to the model server over the network.
 
 If compute-node networking is blocked, `run.sh` exits with a clear error. In
 that case the fallback is per-rule GPU jobs, which reload the models per job.
+
+### Unattended runs
+
+`run.sh` owns the model server, so if the invoking session dies the run stops
+and nothing restarts it. For long unattended stretches use the driver, inside
+tmux:
+
+```bash
+tmux new -s sra
+bash workflow/savio/weekend.sh --size 5000 --windows 6
+```
+
+It runs consecutive windows (`batch_index` 1 to 6), retries a failed window up
+to `--retries` times with a delay, and logs timestamps to `results/weekend.log`.
+Because each attempt re-runs `run.sh`, a retry also restarts the Ollama job and
+resumes from the cached chunks and fragments instead of redoing the window.
+Keep `--size` at or below ~6000 runs; the model-server job is capped at 12 h.
 
 ## Validation
 

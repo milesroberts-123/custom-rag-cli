@@ -148,6 +148,22 @@ lint/format/test checks in CI.
   one job per sample, raw FASTQs are `temp()`, fastp reports live inside the
   sample's quant directory, and trimmed reads are deleted when the job succeeds.
 
+- Review is gated on model uncertainty only: confidence thresholds plus the
+  AthRDB cross-check and `mixed_run_context`. `OTHER`/`unknown` labels are
+  results, not triggers — flagging them enqueued 94% of a window. Do not
+  reintroduce `*_other`/`*_unknown`/`no_paper` review reasons.
+- Long unattended runs go through `workflow/savio/weekend.sh` inside tmux: it
+  chains `batch_index` windows and retries a failed window by re-invoking
+  `run.sh` (which restarts the model server), so an interrupted window resumes
+  from cached chunks instead of stalling for days. `--size` must stay at or
+  below ~6000 runs because the Ollama job is capped at 12 h.
+- Exposure responses with contradictory flags (`other` alongside grounded
+  terms, or `other` with `no_condition`) are resolved in
+  `workflow/scripts/exposure_validation.py`: grounded terms win, and without
+  terms the weaker claim (`other`) is kept. The chosen resolution is recorded
+  as `resolved_conflicts` in the sample JSON; do not turn these back into
+  hard errors.
+
 ## Review app
 
 - `review_app/` is a Streamlit app backed by SQLite at

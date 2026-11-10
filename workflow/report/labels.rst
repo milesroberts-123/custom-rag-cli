@@ -15,8 +15,9 @@ The ``rna_type`` column records ``mrna`` or
 the metadata field that drove the call.
 
 The ``review_required`` column marks rows that need a human check;
-``review_reasons`` lists the triggers (``rna_type_low_confidence``,
-``tissue_other``, ``tissue_low_confidence``, ``germplasm_unknown``,
-``germplasm_low_confidence``, ``exposure_other``, ``exposure_weak_retrieval``,
-``study_other``, ``study_low_confidence``, ``no_paper``,
-``paper_low_confidence``).
+``review_reasons`` lists the triggers. Review is gated on model uncertainty
+only: ``rna_type_low_confidence``, ``tissue_low_confidence``,
+``germplasm_low_confidence``, ``exposure_weak_retrieval``,
+``study_low_confidence``, ``athrdb_disagreement``, and
+``mixed_run_context``. An ``OTHER``/``unknown`` label is a result, not a
+review trigger, even though it is reported in its own column.

@@ -123,6 +123,13 @@ def _athrdb_crosscheck(athrdb, tissue, germplasm):
 
 
 def _review_reasons(tissue, germplasm, exposure, study, rna_type, athrdb, review):
+    """Reasons a sample needs a human, based on model uncertainty only.
+
+    ``OTHER``/``unknown`` outcomes are labeling results, not uncertainty: a
+    model that confidently reports "no matching category" has told us what it
+    knows about the metadata. Flagging those enqueued 94% of a window, so only
+    confidence thresholds (and the AthRDB cross-check) trigger review here.
+    """
     reasons = []
 
     confidence = rna_type.get("confidence")
@@ -131,35 +138,24 @@ def _review_reasons(tissue, germplasm, exposure, study, rna_type, athrdb, review
     ):
         reasons.append("rna_type_low_confidence")
 
-    if (
-        tissue.get("tissue") in (None, "OTHER")
-        or tissue.get("source") == "missing_attributes"
-    ):
-        reasons.append("tissue_other")
     confidence = tissue.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < float(
         review["tissue_confidence"]
     ):
         reasons.append("tissue_low_confidence")
 
-    if germplasm.get("germplasm_type") in (None, "unknown"):
-        reasons.append("germplasm_unknown")
     confidence = germplasm.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < float(
         review["germplasm_confidence"]
     ):
         reasons.append("germplasm_low_confidence")
 
-    if exposure.get("other"):
-        reasons.append("exposure_other")
     score = exposure.get("max_retrieval_score")
     if isinstance(score, (int, float)) and score < float(
         review["exposure_retrieval_score"]
     ):
         reasons.append("exposure_weak_retrieval")
 
-    if study.get("other") or study.get("label") in (None, "OTHER"):
-        reasons.append("study_other")
     confidence = study.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < float(
         review["study_confidence"]
@@ -207,6 +203,26 @@ def _mixed_run_samples(sheet):
 
 
 FRAGMENT_COLUMNS = LABEL_COLUMNS + ["included", "exclusion_reason"]
+
+# Reasons that used to flag a label value rather than model uncertainty. They
+# are dropped on read so fragments written before the gating change (and any
+# copied forward) produce the same table as fresh ones.
+RETIRED_REASONS = frozenset(
+    {
+        "tissue_other",
+        "germplasm_unknown",
+        "exposure_other",
+        "study_other",
+        "no_paper",
+        "paper_low_confidence",
+    }
+)
+
+
+def _retire_reasons(value):
+    """Drop retired review reasons from one fragment's ``;``-joined string."""
+    reasons = [reason for reason in str(value or "").split(";") if reason]
+    return ";".join(reason for reason in reasons if reason not in RETIRED_REASONS)
 
 
 def build_rows(sheet, samns, review, terms, window, destination):
@@ -356,7 +372,10 @@ def main():
         combined = pd.concat(frames, ignore_index=True)
         # Later fragments (newer window) replace earlier rows for the same run.
         combined = combined.drop_duplicates(subset="run", keep="last")
-        included = combined[combined["included"] == "True"]
+        included = combined[combined["included"] == "True"].copy()
+        if "review_reasons" in included:
+            included["review_reasons"] = included["review_reasons"].map(_retire_reasons)
+            included["review_required"] = included["review_reasons"].map(bool)
         excluded = combined[combined["included"] != "True"]
     else:
         included = pd.DataFrame(columns=FRAGMENT_COLUMNS)
