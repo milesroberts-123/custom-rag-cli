@@ -1,6 +1,13 @@
 """Turn BioSample, SRA, and paper records into compact prompt evidence."""
 
-PAPER_KEYS = ("genotype", "treatment", "growth_conditions", "tissue_sampled", "stress")
+PAPER_KEYS = (
+    "genotype",
+    "treatment",
+    "growth_conditions",
+    "tissue_sampled",
+    "stress",
+    "study_setting",
+)
 
 
 def attribute_lines(attributes, keys=None):
@@ -49,6 +56,9 @@ def paper_lines(summary):
     day_length = conditions.get("day_length_hours")
     if isinstance(day_length, (int, float)):
         lines.append(f"paper_day_length_hours: {_fmt_number(day_length)}")
+    setting_quote = conditions.get("study_setting_quote")
+    if conditions.get("study_setting") and setting_quote:
+        lines.append(f"paper_study_setting_quote: {setting_quote[:200]}")
     temperature = conditions.get("growth_temperature_c")
     if isinstance(temperature, (int, float)):
         lines.append(f"paper_growth_temperature_c: {_fmt_number(temperature)}")

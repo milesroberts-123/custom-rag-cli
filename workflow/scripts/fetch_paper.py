@@ -17,6 +17,10 @@ EPMC_FULLTEXT_URL = (
 
 RATE_LIMIT_SECONDS = 0.35
 
+# Bumped whenever discovery or record shape changes: older records are refetched,
+# which also makes Snakemake re-summarize the projects whose text changed.
+FETCH_VERSION = 2
+
 
 def _strip_tags(text):
     return re.sub(r"<[^>]+>", " ", text or "").strip()
@@ -72,6 +76,32 @@ def _linked_pmids(prjna, email, api_key):
     return list(dict.fromkeys(pmids))
 
 
+def _accession_pmids(prjna):
+    """PMIDs of papers that mention a BioProject accession.
+
+    Europe PMC indexes full text, so accessions in data-availability sections
+    are findable even when NCBI's BioProject-to-PubMed link is absent.
+    """
+    params = {
+        "query": f'"{prjna}"',
+        "resultType": "lite",
+        "format": "json",
+        "pageSize": 5,
+    }
+    time.sleep(RATE_LIMIT_SECONDS)
+    response = get(EPMC_SEARCH_URL, params=params)
+    results = response.json().get("resultList", {}).get("result", [])
+    pmids = []
+    for hit in results:
+        pmid = str(hit.get("pmid") or "").strip()
+        if pmid:
+            pmids.append(pmid)
+    return pmids
+
+
+STATUS_RANK = {"fulltext": 2, "abstract": 1, "none": 0}
+
+
 def _paper_record(prjna, pmid):
     params = {
         "query": f"EXT_ID:{pmid} AND SRC:MED",
@@ -108,6 +138,15 @@ def _paper_record(prjna, pmid):
     return record
 
 
+def _stale(path):
+    """True when a cached record predates the current fetch version."""
+    try:
+        record = json.loads(Path(path).read_text())
+    except (OSError, ValueError):
+        return True
+    return int(record.get("version") or 0) < FETCH_VERSION
+
+
 from script_logging import setup as _setup
 
 LOGGER = _setup("fetch_paper")
@@ -121,11 +160,17 @@ def main():
 
     email = snakemake.params.email
     api_key = os.environ.get(snakemake.params.api_key_env or "")
+    discover_accession = bool(snakemake.params.discover_by_accession)
+    max_pmids = int(snakemake.params.max_pmids)
 
     # Existing outputs are kept: with window batching, later windows re-declare
     # projects fetched by earlier windows, and those fetches must be no-ops.
+    # Records written by an older FETCH_VERSION are refetched once so improved
+    # discovery applies to them; rewriting the file also re-triggers the summary.
     pending = [
-        (prjna, path) for prjna, path in zip(prjnas, outputs) if not Path(path).exists()
+        (prjna, path)
+        for prjna, path in zip(prjnas, outputs)
+        if not Path(path).exists() or _stale(path)
     ]
 
     LOGGER.info(
@@ -135,12 +180,39 @@ def main():
     )
 
     for prjna, path in pending:
+        discovery = "none"
+        evidence = ""
         pmids = _linked_pmids(prjna, email, api_key)
         if pmids:
-            record = _paper_record(prjna, pmids[0])
-            record["pmids"] = pmids
-        else:
+            discovery = "elink"
+            evidence = "NCBI BioProject to PubMed link"
+        elif discover_accession:
+            pmids = _accession_pmids(prjna)
+            if pmids:
+                discovery = "accession"
+                evidence = "BioProject accession mentioned in the Europe PMC record"
+
+        record = None
+        for pmid in pmids[:max_pmids]:
+            candidate = _paper_record(prjna, pmid)
+            if (
+                record is None
+                or STATUS_RANK[candidate["status"]] > STATUS_RANK[record["status"]]
+            ):
+                record = candidate
+            if candidate["status"] == "fulltext":
+                break
+
+        if record is None:
             record = {"prjna": prjna, "pmid": None, "pmids": [], "status": "none"}
+        record.update(
+            {
+                "version": FETCH_VERSION,
+                "discovery": discovery,
+                "discovery_evidence": evidence,
+                "pmids": pmids,
+            }
+        )
 
         if record["status"] == "none" and not pmids:
             LOGGER.info("%s: no linked publication", prjna)

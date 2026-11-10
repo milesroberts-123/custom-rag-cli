@@ -36,7 +36,23 @@ peco:
     - PECO:0007175
 
 paper:
-  max_chars: 12000
+  # Methods live in the middle of a paper, and the study setting ("growth
+  # chamber", "field site") is exactly what the study-condition layer needs.
+  max_chars: 20000
+  # NCBI's BioProject-to-PubMed link misses most papers. Europe PMC full-text
+  # search for the accession finds papers that cite the data, which is the
+  # larger source. Title search is deliberately not implemented: a wrong paper
+  # silently annotates every sample in the project.
+  discover_by_accession: true
+  max_pmids: 3
+  # Deterministic mapping from a quoted paper setting to the PECO study label.
+  # Only used when the summary has a verbatim quote and is not low-confidence.
+  study_setting_map:
+    growth_chamber: growth chamber study
+    greenhouse: greenhouse study
+    field: field study
+    laboratory: laboratory study
+    in_vitro: laboratory study
 
 athrdb:
   # Curated Arabidopsis annotations from PlantRNADB (GEO GSM-keyed).
@@ -329,6 +345,19 @@ rna_type:
     - sequencing method
     - nucleic acid extraction
   min_confidence: 0.6
+
+metadata:
+  # Attribute keys that count as growth-condition evidence when summarizing how
+  # complete a BioSample record is (`metadata_missing` in labels.tsv). Labeling
+  # itself still reads the full attribute set; this only classifies records.
+  growth_keys:
+    - isolation and growth condition
+    - growth condition
+    - growth conditions
+    - cultivation
+    - plant growth
+    - light
+    - photoperiod
 
 review:
   tissue_confidence: 0.5

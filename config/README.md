@@ -73,6 +73,10 @@ Gene-expression subworkflow (`snakemake quant_all`).
 
 | Key | Default | Description |
 |---|---|---|
+| `paper.discover_by_accession` | `true` | Also search Europe PMC for the BioProject accession when NCBI has no linked publication. |
+| `paper.max_pmids` | `3` | Candidate papers tried per project; the best text tier wins. |
+| `paper.study_setting_map` | map | Maps a quoted paper setting to a PECO study-condition label. |
+| `metadata.growth_keys` | list | Attribute keys counted as growth-condition evidence in `metadata_missing`. |
 | `targets` | `results/quant/targets.tsv` | Target list produced by `python workflow/scripts/quant_prepare.py`. |
 | `reference_release` | `60` | Ensembl Plants release recorded with the reference URLs. |
 | `cdna_url` / `genome_url` / `gtf_url` | Ensembl Plants TAIR10 r60 | Reference FASTA and annotation; the GTF must match the cDNA release. |

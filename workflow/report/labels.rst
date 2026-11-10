@@ -21,3 +21,8 @@ only: ``rna_type_low_confidence``, ``tissue_low_confidence``,
 ``study_low_confidence``, ``athrdb_disagreement``, and
 ``mixed_run_context``. An ``OTHER``/``unknown`` label is a result, not a
 review trigger, even though it is reported in its own column.
+
+The ``metadata_tier`` column separates records that carry no biological
+metadata (``empty``) from ``partial`` and ``annotated`` ones, and
+``metadata_missing`` lists which evidence families are absent, so label-quality
+statistics can be read per tier instead of being dominated by bare submissions.

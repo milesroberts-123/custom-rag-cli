@@ -294,8 +294,19 @@ libraries as natural accessions.
   `peco_exposure_other`, `peco_exposure_max_score`
 - `peco_study_id`, `peco_study_label`, `peco_study_confidence`
 - `growth_system_ids`, `growth_system_labels`
-- `has_paper`, `paper_low_confidence`
+- `has_paper`, `paper_low_confidence`, `paper_study_setting`
+- `metadata_tier`, `metadata_missing`, `n_informative_attributes`
 - `review_required`, `review_reasons`
+
+**Metadata provenance.** `metadata_tier` classifies each sample's BioSample
+record: `empty` (only ENA/NCBI boilerplate, no biological attributes),
+`partial` (one evidence family), or `annotated` (two or more).
+`metadata_missing` lists absent families from `tissue`, `germplasm`,
+`growth_condition`, and `paper`, and `n_informative_attributes` counts
+non-boilerplate attributes. `results/metadata_coverage.tsv` summarizes the same
+per BioProject (sample counts by tier plus OTHER rates), which is the practical
+way to decide whether a project can be labeled from metadata at all. Window 1
+measured 14% boilerplate-only samples, and those are 96–100% OTHER/unknown.
 
 Review is gated on model uncertainty only. Review reasons:
 `rna_type_low_confidence`, `tissue_low_confidence`,
@@ -331,6 +342,18 @@ at least the largest thread request (Snakemake clamps threads to it), and
 `--jobs` sets how many jobs run at once — 4 jobs x 8 threads = 32 cores. Do not
 add `cpus_per_task` to the profile's `default-resources`: the Slurm plugin
 derives it from the thread counts.
+
+**Papers.** `fetch_paper` resolves a BioProject to publications through NCBI's
+BioProject→PubMed link first, then (config `paper.discover_by_accession`) through
+Europe PMC full-text search for the accession, which finds papers that cite the
+data in a data-availability section. It keeps the candidate with the best text
+tier (`fulltext` > `abstract`) out of `paper.max_pmids`. `summarize_paper`
+prioritizes Methods in the excerpt (that is where the growth setting lives),
+extracts `study_setting` (`growth_chamber|greenhouse|field|laboratory|in_vitro`)
+with a required verbatim quote, and the study-condition labeler uses that quote
+directly (`source: paper_rules`) when the summary is not low-confidence.
+Paper records carry a `version`; bumping `FETCH_VERSION` refetches older records
+once, which also re-runs their summaries.
 
 **Reads** come from ENA's `fastq_ftp` URLs when available (md5-verified,
 resumable) and fall back to `prefetch` + `fasterq-dump --split-3` otherwise.

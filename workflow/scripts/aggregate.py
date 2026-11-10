@@ -46,6 +46,10 @@ LABEL_COLUMNS = [
     "paper_low_confidence",
     "paper_day_length_hours",
     "paper_growth_temperature_c",
+    "paper_study_setting",
+    "metadata_tier",
+    "metadata_missing",
+    "n_informative_attributes",
     "athrdb_gsm",
     "athrdb_tissue",
     "athrdb_genotype",
@@ -204,6 +208,83 @@ def _mixed_run_samples(sheet):
 
 FRAGMENT_COLUMNS = LABEL_COLUMNS + ["included", "exclusion_reason"]
 
+# Attributes every ENA/NCBI submission carries regardless of the experiment.
+# A sample recorded with only these has no biological metadata at all, which is
+# why it lands in OTHER/unknown for every layer (14% of window 1).
+BOILERPLATE_ATTRIBUTES = frozenset(
+    {
+        "ena-checklist",
+        "ena-first-public",
+        "ena-last-update",
+        "common name",
+        "organism",
+        "scientific_name",
+        "scientific name",
+        "sample name",
+        "sample_title",
+        "description",
+        "title",
+    }
+)
+
+PLACEHOLDER_VALUES = frozenset(
+    {"", "missing", "not applicable", "na", "nan", "none", "not provided", "unknown"}
+)
+
+METADATA_FAMILIES = ("tissue", "germplasm", "growth_condition", "paper")
+
+
+def _usable(value):
+    """True when an attribute value carries information rather than a placeholder."""
+    return str(value if value is not None else "").strip().lower() not in (
+        PLACEHOLDER_VALUES
+    )
+
+
+def informative_attributes(attributes):
+    """Attributes that say something about the sample, minus submission boilerplate."""
+    return {
+        str(name).strip().lower(): value
+        for name, value in (attributes or {}).items()
+        if str(name).strip().lower() not in BOILERPLATE_ATTRIBUTES and _usable(value)
+    }
+
+
+def _has_family(attributes, keys):
+    """True when any configured attribute key is present with a usable value."""
+    lowered = {str(name).strip().lower() for name in keys}
+    return any(
+        name in lowered and _usable(value) for name, value in (attributes or {}).items()
+    )
+
+
+def metadata_state(attributes, has_paper, keys):
+    """Summarize which evidence families a sample's metadata provides.
+
+    Returns ``(tier, missing, n_informative)``. ``tier`` separates records that
+    carry no biological metadata (``empty``) from ones with a single family
+    (``partial``) and two or more (``annotated``), so label-quality statistics
+    can be read per tier instead of being dominated by empty submissions.
+    """
+    informative = informative_attributes(attributes)
+    present = {
+        "tissue": _has_family(informative, keys.get("tissue", [])),
+        "germplasm": _has_family(informative, keys.get("germplasm", [])),
+        "growth_condition": _has_family(informative, keys.get("growth_condition", [])),
+        "paper": bool(has_paper),
+    }
+    missing = [family for family in METADATA_FAMILIES if not present[family]]
+    attribute_families = sum(1 for family in METADATA_FAMILIES[:3] if present[family])
+
+    if not informative:
+        tier = "empty"
+    elif attribute_families <= 1:
+        tier = "partial"
+    else:
+        tier = "annotated"
+    return tier, ";".join(missing), len(informative)
+
+
 # Reasons that used to flag a label value rather than model uncertainty. They
 # are dropped on read so fragments written before the gating change (and any
 # copied forward) produce the same table as fresh ones.
@@ -225,7 +306,16 @@ def _retire_reasons(value):
     return ";".join(reason for reason in reasons if reason not in RETIRED_REASONS)
 
 
-def build_rows(sheet, samns, review, terms, window, destination):
+def build_rows(
+    sheet,
+    samns,
+    review,
+    terms,
+    window,
+    destination,
+    attributes=None,
+    metadata_keys=None,
+):
     """Build one window-chunk fragment: one row per run, included or excluded.
 
     Row construction happens here, next to the labels, so `aggregate` never has
@@ -234,6 +324,8 @@ def build_rows(sheet, samns, review, terms, window, destination):
     number of runs processed so far.
     """
     terms_by_id = terms
+    attributes = attributes or {}
+    metadata_keys = metadata_keys or {}
     mixed = _mixed_run_samples(sheet)
     wanted = set(samns)
     rows = []
@@ -294,6 +386,11 @@ def build_rows(sheet, samns, review, terms, window, destination):
             for term in exposure.get("terms", [])
             if terms_by_id.get(term["term_id"], {}).get("growth_system")
         ]
+        tier, missing, n_informative = metadata_state(
+            attributes.get(sample.biosample, {}),
+            summary.get("has_paper", False),
+            metadata_keys,
+        )
         reasons = _review_reasons(
             tissue, germplasm, exposure, study, rna_type, athrdb, review
         )
@@ -334,6 +431,10 @@ def build_rows(sheet, samns, review, terms, window, destination):
                 "paper_low_confidence": summary.get("low_confidence", True),
                 "paper_day_length_hours": conditions.get("day_length_hours"),
                 "paper_growth_temperature_c": conditions.get("growth_temperature_c"),
+                "paper_study_setting": conditions.get("study_setting") or "",
+                "metadata_tier": tier,
+                "metadata_missing": missing,
+                "n_informative_attributes": n_informative,
                 "athrdb_gsm": athrdb.get("gsm"),
                 "athrdb_tissue": athrdb.get("athrdb_tissue"),
                 "athrdb_genotype": athrdb.get("athrdb_genotype"),
@@ -359,6 +460,57 @@ def _fragment_order(path):
         return int(window), int(chunk)
     except ValueError:
         return 0, 0
+
+
+def coverage_table(included, sheet):
+    """Per-BioProject metadata and label-quality summary for window planning."""
+    if included.empty:
+        return pd.DataFrame(
+            columns=[
+                "bioproject",
+                "runs",
+                "samples",
+                "tier_empty",
+                "tier_partial",
+                "tier_annotated",
+                "tissue_other_pct",
+                "germplasm_unknown_pct",
+                "study_other_pct",
+                "has_paper_pct",
+            ]
+        )
+
+    frame = included.copy()
+    for column in ("metadata_tier", "tissue", "germplasm_type", "peco_study_label"):
+        if column not in frame:
+            frame[column] = ""
+    frame["has_paper_bool"] = frame.get("has_paper", "").astype(str).eq("True")
+
+    rows = []
+    for prjna, group in frame.groupby("bioproject", sort=True):
+        samples = group.drop_duplicates("biosample")
+        n_samples = len(samples)
+        rows.append(
+            {
+                "bioproject": prjna,
+                "runs": len(group),
+                "samples": n_samples,
+                "tier_empty": int((samples["metadata_tier"] == "empty").sum()),
+                "tier_partial": int((samples["metadata_tier"] == "partial").sum()),
+                "tier_annotated": int((samples["metadata_tier"] == "annotated").sum()),
+                "tissue_other_pct": round(
+                    100 * samples["tissue"].isin(["OTHER", ""]).mean(), 1
+                ),
+                "germplasm_unknown_pct": round(
+                    100 * samples["germplasm_type"].isin(["unknown", ""]).mean(), 1
+                ),
+                "study_other_pct": round(
+                    100 * samples["peco_study_label"].isin(["OTHER", ""]).mean(), 1
+                ),
+                "has_paper_pct": round(100 * samples["has_paper_bool"].mean(), 1),
+            }
+        )
+    return pd.DataFrame(rows)
 
 
 def main():
@@ -391,6 +543,21 @@ def main():
     excluded_output = Path(snakemake.output.excluded)
     excluded_output.parent.mkdir(parents=True, exist_ok=True)
     excluded_out.to_csv(excluded_output, sep="\t", index=False)
+
+    coverage = getattr(snakemake.output, "coverage", None)
+    if coverage:
+        table = coverage_table(included, sheet)
+        coverage_path = Path(coverage)
+        coverage_path.parent.mkdir(parents=True, exist_ok=True)
+        table.to_csv(coverage_path, sep="\t", index=False)
+        if not table.empty:
+            empty = int(table["tier_empty"].sum())
+            total = int(table["samples"].sum())
+            print(
+                f"metadata coverage: {empty} of {total} samples are boilerplate-only "
+                f"across {len(table)} projects",
+                file=sys.stderr,
+            )
 
     accounted = set(combined["run"]) if frames else set()
     missing = [run for run in sheet["run"] if run not in accounted]

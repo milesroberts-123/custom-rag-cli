@@ -4,6 +4,10 @@ Each chunk writes one TSV row per run of its BioSamples, so the final
 `aggregate` step only concatenates fragments. Doing the per-run work here —
 inside the window that produced the labels — keeps total cost proportional to
 the number of samples labeled rather than to the whole sheet on every run.
+
+BioSample attributes are read here too: metadata provenance (tier, missing
+families) is a property of the record, and computing it next to the labels
+keeps `aggregate` from rescanning metadata for the whole table.
 """
 
 import json
@@ -12,6 +16,19 @@ from pathlib import Path
 
 import aggregate
 import pandas as pd
+
+
+def _attributes(paths):
+    """Map BioSample accession -> attribute dict."""
+    attributes = {}
+    for path in paths:
+        path = Path(path)
+        if not path.exists():
+            continue
+        record = json.loads(path.read_text())
+        accession = record.get("accession") or path.stem
+        attributes[accession] = record.get("attributes") or {}
+    return attributes
 
 
 def main():
@@ -28,6 +45,12 @@ def main():
         terms,
         window=snakemake.wildcards.window,
         destination=snakemake.output[0],
+        attributes=_attributes(snakemake.input.biosample),
+        metadata_keys={
+            "tissue": list(snakemake.params.tissue_keys),
+            "germplasm": list(snakemake.params.germplasm_keys),
+            "growth_condition": list(snakemake.params.growth_keys),
+        },
     )
     print(
         f"window {snakemake.wildcards.window} chunk {snakemake.wildcards.chunk}: "

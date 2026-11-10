@@ -13,6 +13,10 @@ SYSTEM = (
     "from a paper. Return only a JSON object."
 )
 
+PROMPT_VERSION = 2
+
+STUDY_SETTINGS = ("growth_chamber", "greenhouse", "field", "laboratory", "in_vitro")
+
 PROMPT = """Read this excerpt from the paper associated with BioProject {prjna}.
 
 Extract the experimental conditions that apply to the RNA-seq samples. Return a
@@ -26,6 +30,13 @@ JSON object with exactly these keys:
   16 h light / 8 h dark cycle, 24 for constant light; null when not reported
 - "growth_temperature_c": growth temperature in Celsius as a number; use the
   midpoint of a stated range; null when not reported
+- "study_setting": where the plants were grown, one of
+  growth_chamber | greenhouse | field | laboratory | in_vitro; null when the
+  excerpt does not say. Use growth_chamber for climate-controlled cabinets,
+  rooms, or phytotrons; laboratory for in-vitro/plate/culture work; field for
+  field sites or natural populations.
+- "study_setting_quote": the exact sentence that states the setting, at most
+  200 characters; null when study_setting is null
 - "evidence": short direct quote(s) supporting the values, string
 
 Do not invent details that are not in the excerpt. Use null when unknown.
@@ -49,20 +60,22 @@ def _jats_excerpt(xml_text, max_chars):
     root = ET.fromstring(_strip_namespaces(xml_text))
     parts = []
 
-    title = root.find(".//article-title")
-    if title is not None:
-        parts.append(("title", _text(title)))
-
-    abstract = root.find(".//abstract")
-    if abstract is not None:
-        parts.append(("abstract", _text(abstract)))
-
+    # Methods first: the growth setting and photoperiod live there, and the
+    # excerpt budget is finite.
     for section in root.findall(".//sec"):
         heading = section.find("title")
         sec_type = (section.get("sec-type") or "").lower()
         matches_heading = heading is not None and METHOD_RE.search(_text(heading))
         if matches_heading or "method" in sec_type:
             parts.append(("methods", _text(section)))
+
+    abstract = root.find(".//abstract")
+    if abstract is not None:
+        parts.append(("abstract", _text(abstract)))
+
+    title = root.find(".//article-title")
+    if title is not None:
+        parts.append(("title", _text(title)))
 
     captions = [_text(c) for c in root.findall(".//table-wrap/caption")]
     captions += [_text(c) for c in root.findall(".//fig/caption")]
@@ -107,6 +120,17 @@ def _normalize(parsed):
         conditions[key] = (
             value.strip() if isinstance(value, str) and value.strip() else None
         )
+
+    setting = (conditions.get("study_setting") or "").strip().lower()
+    quote = parsed.get("study_setting_quote")
+    quote = quote.strip() if isinstance(quote, str) else ""
+    if setting not in STUDY_SETTINGS or not quote:
+        # A setting without a verbatim quote is not usable as evidence, and an
+        # unknown label cannot be mapped to a PECO term.
+        setting = None
+        quote = ""
+    conditions["study_setting"] = setting
+    conditions["study_setting_quote"] = quote[:200]
     conditions["day_length_hours"] = _as_number(parsed.get("day_length_hours"))
     conditions["growth_temperature_c"] = _as_number(parsed.get("growth_temperature_c"))
     evidence = parsed.get("evidence")
@@ -188,6 +212,10 @@ def main():
             "has_paper": True,
             "pmid": paper.get("pmid"),
             "low_confidence": low_confidence,
+            "text_source": "fulltext"
+            if paper.get("status") == "fulltext"
+            else "abstract",
+            "prompt_version": PROMPT_VERSION,
             "conditions": conditions,
         }
 

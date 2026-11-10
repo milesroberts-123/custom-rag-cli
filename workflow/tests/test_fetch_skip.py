@@ -98,7 +98,14 @@ def test_fetch_paper_skips_existing(tmp_path, monkeypatch):
     import fetch_paper
 
     existing = tmp_path / "results/metadata/paper/PRJNA1.json"
-    _write(existing, {"prjna": "PRJNA1", "status": "from-disk"})
+    _write(
+        existing,
+        {
+            "prjna": "PRJNA1",
+            "status": "from-disk",
+            "version": fetch_paper.FETCH_VERSION,
+        },
+    )
     missing = tmp_path / "results/metadata/paper/PRJNA2.json"
 
     linked = []
@@ -122,6 +129,8 @@ def test_fetch_paper_skips_existing(tmp_path, monkeypatch):
             outputs=[str(existing), str(missing)],
             email="x@example.com",
             api_key_env="",
+            discover_by_accession=False,
+            max_pmids=1,
         ),
         raising=False,
     )

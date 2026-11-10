@@ -148,6 +148,19 @@ lint/format/test checks in CI.
   one job per sample, raw FASTQs are `temp()`, fastp reports live inside the
   sample's quant directory, and trimmed reads are deleted when the job succeeds.
 
+- `labels.tsv` carries metadata provenance: `metadata_tier`
+  (`empty`/`partial`/`annotated`), `metadata_missing`, and
+  `n_informative_attributes`, computed in `sample_rows` from BioSample
+  attributes. `results/metadata_coverage.tsv` summarizes them per project.
+  Never treat `empty` as a review reason — it is a property of the submission.
+- Paper discovery goes NCBI BioProject link first, then Europe PMC
+  accession search (`paper.discover_by_accession`), keeping the best text tier
+  among `paper.max_pmids`. `FETCH_VERSION` in `fetch_paper.py` gates refetches;
+  bump it when discovery or record shape changes. `summarize_paper` extracts
+  `study_setting` with a required verbatim quote from a Methods-first excerpt,
+  and `label_study_condition` maps that quote to a PECO label
+  (`source: paper_rules`) only when the summary is not low-confidence and the
+  setting maps via `paper.study_setting_map`.
 - Review is gated on model uncertainty only: confidence thresholds plus the
   AthRDB cross-check and `mixed_run_context`. `OTHER`/`unknown` labels are
   results, not triggers — flagging them enqueued 94% of a window. Do not

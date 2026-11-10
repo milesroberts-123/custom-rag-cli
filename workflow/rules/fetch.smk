@@ -61,6 +61,8 @@ rule fetch_papers:
         prjnas=PRJNAS,
         email=config["ncbi"]["email"],
         api_key_env=config["ncbi"]["api_key_env"],
+        discover_by_accession=config["paper"]["discover_by_accession"],
+        max_pmids=config["paper"]["max_pmids"],
     script:
         "../scripts/fetch_paper.py"
 

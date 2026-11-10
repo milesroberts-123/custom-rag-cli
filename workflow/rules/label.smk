@@ -93,6 +93,7 @@ rule label_study_condition:
         samns=chunk_samns,
         runs=chunk_runs,
         prjnas=chunk_prjnas,
+        paper_setting_map=config["paper"]["study_setting_map"],
     script:
         "../scripts/label_study_condition.py"
 
@@ -104,6 +105,7 @@ rule sample_rows:
         germplasm="results/chunks/germplasm/{chunk}.done",
         study="results/chunks/study_condition/{chunk}.done",
         exposure=exposure_chunks_for_sample_rows,
+        biosample=chunk_biosamples,
         sra=chunk_sra,
         summaries=chunk_summaries,
         index="results/peco/peco_index",
@@ -116,6 +118,9 @@ rule sample_rows:
         samns=chunk_samns,
         runs=chunk_runs,
         review=config["review"],
+        tissue_keys=config["tissue"]["rule_attribute_keys"],
+        germplasm_keys=config["germplasm"]["rule_attribute_keys"],
+        growth_keys=config["metadata"]["growth_keys"],
     script:
         "../scripts/sample_rows.py"
 
@@ -135,6 +140,7 @@ rule aggregate:
             category="Labels",
         ),
         excluded="results/labels.excluded.tsv",
+        coverage="results/metadata_coverage.tsv",
     conda:
         "../envs/aggregate.yaml"
     params:

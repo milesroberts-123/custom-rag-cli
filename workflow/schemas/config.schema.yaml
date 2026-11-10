@@ -78,7 +78,17 @@ properties:
     properties:
       max_chars:
         type: integer
-        default: 12000
+        default: 20000
+      discover_by_accession:
+        type: boolean
+        default: true
+      max_pmids:
+        type: integer
+        default: 3
+      study_setting_map:
+        type: object
+        additionalProperties:
+          type: string
     required:
       - max_chars
   athrdb:
@@ -283,6 +293,17 @@ properties:
         default: 0.6
     required:
       - accepted_rna_types
+  metadata:
+    type: object
+    properties:
+      growth_keys:
+        type: array
+        items:
+          type: string
+        default:
+          - isolation and growth condition
+    required:
+      - growth_keys
   review:
     type: object
     properties:

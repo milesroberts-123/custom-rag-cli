@@ -90,6 +90,23 @@ from script_logging import setup as _setup
 LOGGER = _setup("label_study_condition")
 
 
+def paper_setting_category(summary, criteria, setting_map):
+    """Return (category, evidence) when a paper states the growth setting.
+
+    Requires a verbatim quote and a non-low-confidence summary: without those the
+    mapping is a guess, and a wrong paper would silently relabel a project.
+    """
+    conditions = summary.get("conditions") or {}
+    setting = conditions.get("study_setting")
+    quote = conditions.get("study_setting_quote")
+    if not setting or not quote or summary.get("low_confidence", True):
+        return None, ""
+    mapped = setting_map.get(setting)
+    if mapped not in criteria:
+        return None, ""
+    return mapped, f"paper study setting: {quote}"
+
+
 def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label):
     """Classify one run's study condition; returns the result dict or None."""
     rna_type = load_rna_type(inputs["rna_type"])
@@ -115,7 +132,17 @@ def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label)
     evidence = ""
     source = ""
 
-    if values:
+    # A paper that states where the plants were grown, with a verbatim quote and
+    # an excerpt that includes Methods, is near-certain evidence: use it without
+    # spending a model call. Everything else falls through to the decision model.
+    category, evidence = paper_setting_category(
+        summary, criteria, params["paper_setting_map"]
+    )
+    if category is not None:
+        confidence = 1.0
+        source = "paper_rules"
+
+    if category is None and values:
         fell_back = False
         if params["backend"] == "decision":
             try:

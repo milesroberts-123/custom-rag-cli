@@ -21,6 +21,14 @@ peco:
 
 paper:
   max_chars: 1000
+  discover_by_accession: false
+  max_pmids: 1
+  study_setting_map:
+    growth_chamber: growth chamber study
+    greenhouse: greenhouse study
+    field: field study
+    laboratory: laboratory study
+    in_vitro: laboratory study
 
 athrdb:
   enabled: true
@@ -80,6 +88,10 @@ rna_type:
   attribute_keys:
     - rna type
   min_confidence: 0.6
+
+metadata:
+  growth_keys:
+    - isolation and growth condition
 
 review:
   tissue_confidence: 0.5

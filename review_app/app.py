@@ -625,6 +625,10 @@ def _render() -> None:
         notes = db.latest_notes(connection)
         labels = labels.copy()
         labels["_reviewed"] = labels["run"].isin(reviewed_runs)
+        for column in ("metadata_tier", "metadata_missing"):
+            if column not in labels:
+                labels[column] = ""
+            labels[column] = labels[column].fillna("")
 
         st.sidebar.title("Review queue")
         reviewer = st.sidebar.text_input(
@@ -636,12 +640,23 @@ def _render() -> None:
         if counts["total"]:
             st.sidebar.progress(counts["reviewed"] / counts["total"])
         view = st.sidebar.radio("Show", REVIEW_VIEWS, index=0)
+        hide_empty = st.sidebar.checkbox(
+            "Hide boilerplate-only samples",
+            value=False,
+            help=(
+                "Samples whose BioSample record carries no biological attributes "
+                "(metadata_tier=empty). They cannot be labeled from metadata."
+            ),
+        )
         if view == "Needs review":
             visible = labels[~labels["_reviewed"]]
         elif view == "Reviewed":
             visible = labels[labels["_reviewed"]]
         else:
             visible = labels
+
+        if hide_empty:
+            visible = visible[visible["metadata_tier"] != "empty"]
 
         _sidebar_export(root, db_path)
 
@@ -697,6 +712,13 @@ def _render() -> None:
             st.warning("Model review reasons: " + (sample.get("review_reasons") or ""))
         else:
             st.info("The model did not flag this run.")
+
+        if sample.get("metadata_tier"):
+            missing = str(sample.get("metadata_missing") or "").replace(";", ", ")
+            st.caption(
+                f"Metadata: {sample['metadata_tier']}"
+                + (f" · missing: {missing}" if missing else "")
+            )
 
         _project_panel(project, bundle, sample)
         st.markdown("**Runs in this BioProject**")
