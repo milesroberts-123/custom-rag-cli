@@ -172,12 +172,18 @@ def main():
     Path(output).parent.mkdir(parents=True, exist_ok=True)
     prjna = paper["prjna"]
 
-    if paper.get("status") == "none":
-        LOGGER.info("%s: no linked publication; writing stub", prjna)
+    if paper.get("status") in ("none", "error"):
+        LOGGER.info(
+            "%s: no usable publication (%s); writing stub",
+            prjna,
+            paper.get("status"),
+        )
         result = {
             "prjna": prjna,
             "has_paper": False,
             "low_confidence": True,
+            "text_source": None,
+            "fetch_status": paper.get("status"),
             "conditions": None,
         }
     else:

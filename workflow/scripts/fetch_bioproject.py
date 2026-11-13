@@ -159,7 +159,13 @@ def main():
                 max_retries,
                 error_label=f"BioProject fetch for {prjna}",
             )
-            record = _parse(xml_bytes, prjna)
+            try:
+                record = _parse(xml_bytes, prjna)
+            except ET.ParseError as error:
+                # One malformed project record must not fail the window; the
+                # review app falls back to the sample/BioProject caches.
+                LOGGER.warning("%s: unparseable BioProject XML (%s)", prjna, error)
+                record = {"prjna": prjna, "status": "unparseable"}
             record["uid"] = uid
 
         LOGGER.info("%s: %s", prjna, record["status"])

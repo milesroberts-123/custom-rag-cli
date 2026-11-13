@@ -3,6 +3,7 @@
 import json
 import re
 import time
+import xml.etree.ElementTree as ET
 
 import requests
 
@@ -12,8 +13,47 @@ ESUMMARY_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi"
 
 
 def strip_namespaces(xml_bytes):
-    """Remove XML namespace declarations from an efetch response."""
-    return re.sub(rb'\sxmlns(:\w+)?="[^"]*"', b"", xml_bytes)
+    """Flatten XML namespaces so ElementTree can match plain tag names.
+
+    Removing the declarations alone is not enough: GEO-brokered SRA records
+    carry ``xsi:noNamespaceSchemaLocation`` attributes, and ENA-derived ones
+    occasionally use prefixed elements. A prefix left without its declaration
+    makes ElementTree raise ``unbound prefix``, which used to kill the whole
+    fetch job (window 6, ERR10479009 batch). Strip the prefixes too.
+    """
+    text = re.sub(rb'\sxmlns(:\w+)?="[^"]*"', b"", xml_bytes)
+    text = re.sub(rb"<(/?)[A-Za-z_][\w.-]*:", rb"<\1", text)  # <ns:tag>
+    text = re.sub(
+        rb"(\s)[A-Za-z_][\w.-]*:(?=[A-Za-z_][\w.-]*=)", rb"\1", text
+    )  # ns:attribute=
+    return text
+
+
+def parse_efetch(xml_bytes, parse_fn, record_tag=None):
+    """Parse an efetch response, degrading to per-record parsing.
+
+    Returns ``(records, failures)``. A whole response that will not parse is
+    retried one record at a time: one malformed record must not fail the fetch
+    job, because the caller turns missing accessions into ENA fallbacks or
+    stubs. ``failures`` counts records that could not be parsed at all.
+    """
+    soft = strip_namespaces(xml_bytes)
+    try:
+        return parse_fn(soft), 0
+    except ET.ParseError:
+        if not record_tag:
+            return {}, 1
+
+    tag = record_tag.encode()
+    pattern = re.compile(rb"<" + tag + rb"(?:\s[^>]*)?>.*?</" + tag + rb">", re.S)
+    records = {}
+    failures = 0
+    for chunk in pattern.findall(soft):
+        try:
+            records.update(parse_fn(b"<ROOT>" + chunk + b"</ROOT>"))
+        except ET.ParseError:
+            failures += 1
+    return records, failures
 
 
 def fetch_efetch(

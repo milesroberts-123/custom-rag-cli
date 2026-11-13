@@ -131,10 +131,56 @@ def _paper_record(prjna, pmid):
     }
     if pmcid and is_open:
         time.sleep(RATE_LIMIT_SECONDS)
-        fulltext = get(EPMC_FULLTEXT_URL.format(pmcid=pmcid))
-        if fulltext is not None:
-            record["fulltext_xml"] = fulltext.text
-            record["status"] = "fulltext"
+        # A PMC id can be flagged open-access while fullTextXML still returns
+        # 403/404 (embargo, withdrawal, broken record). Degrade to the abstract:
+        # one paper must never fail the fetch job.
+        try:
+            fulltext = get(EPMC_FULLTEXT_URL.format(pmcid=pmcid))
+        except Exception as error:  # noqa: BLE001 - any transport error degrades
+            record["fulltext_error"] = str(error)[:200]
+            LOGGER.warning("%s: full text unavailable (%s)", prjna, error)
+        else:
+            if fulltext is not None:
+                record["fulltext_xml"] = fulltext.text
+                record["status"] = "fulltext"
+    return record
+
+
+def _fetch_one(prjna, email, api_key, discover_accession, max_pmids):
+    """Resolve and fetch one project's best paper record."""
+    discovery = "none"
+    evidence = ""
+    pmids = _linked_pmids(prjna, email, api_key)
+    if pmids:
+        discovery = "elink"
+        evidence = "NCBI BioProject to PubMed link"
+    elif discover_accession:
+        pmids = _accession_pmids(prjna)
+        if pmids:
+            discovery = "accession"
+            evidence = "BioProject accession mentioned in the Europe PMC record"
+
+    record = None
+    for pmid in pmids[:max_pmids]:
+        candidate = _paper_record(prjna, pmid)
+        if (
+            record is None
+            or STATUS_RANK[candidate["status"]] > STATUS_RANK[record["status"]]
+        ):
+            record = candidate
+        if candidate["status"] == "fulltext":
+            break
+
+    if record is None:
+        record = {"prjna": prjna, "pmid": None, "pmids": [], "status": "none"}
+    record.update(
+        {
+            "version": FETCH_VERSION,
+            "discovery": discovery,
+            "discovery_evidence": evidence,
+            "pmids": pmids,
+        }
+    )
     return record
 
 
@@ -180,41 +226,20 @@ def main():
     )
 
     for prjna, path in pending:
-        discovery = "none"
-        evidence = ""
-        pmids = _linked_pmids(prjna, email, api_key)
-        if pmids:
-            discovery = "elink"
-            evidence = "NCBI BioProject to PubMed link"
-        elif discover_accession:
-            pmids = _accession_pmids(prjna)
-            if pmids:
-                discovery = "accession"
-                evidence = "BioProject accession mentioned in the Europe PMC record"
-
-        record = None
-        for pmid in pmids[:max_pmids]:
-            candidate = _paper_record(prjna, pmid)
-            if (
-                record is None
-                or STATUS_RANK[candidate["status"]] > STATUS_RANK[record["status"]]
-            ):
-                record = candidate
-            if candidate["status"] == "fulltext":
-                break
-
-        if record is None:
-            record = {"prjna": prjna, "pmid": None, "pmids": [], "status": "none"}
-        record.update(
-            {
+        try:
+            record = _fetch_one(prjna, email, api_key, discover_accession, max_pmids)
+        except Exception as error:  # noqa: BLE001 - one project must not fail the job
+            LOGGER.warning("%s: fetch failed (%s); writing a stub", prjna, error)
+            record = {
+                "prjna": prjna,
+                "pmid": None,
+                "pmids": [],
+                "status": "error",
+                "error": str(error)[:300],
                 "version": FETCH_VERSION,
-                "discovery": discovery,
-                "discovery_evidence": evidence,
-                "pmids": pmids,
             }
-        )
 
-        if record["status"] == "none" and not pmids:
+        if record["status"] == "none" and not record.get("pmids"):
             LOGGER.info("%s: no linked publication", prjna)
         else:
             LOGGER.info("%s: %s via PMID %s", prjna, record["status"], record["pmid"])

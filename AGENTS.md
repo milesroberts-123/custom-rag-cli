@@ -88,6 +88,13 @@ lint/format/test checks in CI.
   stub (`fetch_source: "missing"`), never a window failure.
   ATHRDB has no coverage for ENA-only libraries (no GEO record); expect
   `no_geo_record` stubs there.
+- NCBI XML goes through `ncbi.parse_efetch`: it strips namespace prefixes
+  (GEO-brokered SRA records carry `xsi:` attributes) and, when a response will
+  not parse, retries record by record so one malformed record cannot fail a
+  fetch job. Missing accessions then take the ENA fallback/stub path. Paper
+  fetches degrade a failed full-text request to the abstract (`fulltext_error`)
+  and write a `status: "error"` stub per project instead of failing the job;
+  `summarize_paper` treats that status like `none`.
 - Window batching (`batch_size`/`batch_index`) slices the sheet per
   invocation; each window writes `results/rows/{window}-{chunk}.tsv` fragments
   and `aggregate` only concatenates them (newest window wins per run), so

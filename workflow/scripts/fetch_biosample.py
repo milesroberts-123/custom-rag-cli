@@ -15,7 +15,7 @@ from pathlib import Path
 
 import requests
 
-from ncbi import fetch_efetch, strip_namespaces
+from ncbi import fetch_efetch, parse_efetch, strip_namespaces
 
 ENA_XML_URL = "https://www.ebi.ac.uk/ena/browser/api/xml/{accession}"
 ENA_RATE_LIMIT_SECONDS = 0.3
@@ -133,19 +133,26 @@ def main():
             len(batches),
             len(batch),
         )
-        records.update(
-            _parse(
-                fetch_efetch(
-                    "biosample",
-                    [samn for samn, _ in batch],
-                    email,
-                    api_key,
-                    max_retries,
-                    timeout=120,
-                    error_label="BioSample fetch",
-                )
-            )
+        parsed, failures = parse_efetch(
+            fetch_efetch(
+                "biosample",
+                [samn for samn, _ in batch],
+                email,
+                api_key,
+                max_retries,
+                timeout=120,
+                error_label="BioSample fetch",
+            ),
+            _parse,
+            "BioSample",
         )
+        records.update(parsed)
+        if failures:
+            LOGGER.warning(
+                "batch %d: %d record(s) did not parse; ENA fallback covers them",
+                index,
+                failures,
+            )
         LOGGER.info(
             "batch %d/%d parsed (%d records total)",
             index,

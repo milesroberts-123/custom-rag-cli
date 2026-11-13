@@ -8,7 +8,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 from http_utils import get
-from ncbi import fetch_efetch, strip_namespaces
+from ncbi import fetch_efetch, parse_efetch, strip_namespaces
 
 ENA_FILEREPORT = "https://www.ebi.ac.uk/ena/portal/api/filereport"
 ENA_FIELDS = (
@@ -203,19 +203,26 @@ def main():
             len(batches),
             len(batch),
         )
-        records.update(
-            _parse(
-                fetch_efetch(
-                    "sra",
-                    [run for run, _ in batch],
-                    email,
-                    api_key,
-                    max_retries,
-                    timeout=180,
-                    error_label="SRA metadata fetch",
-                )
-            )
+        parsed, failures = parse_efetch(
+            fetch_efetch(
+                "sra",
+                [run for run, _ in batch],
+                email,
+                api_key,
+                max_retries,
+                timeout=180,
+                error_label="SRA metadata fetch",
+            ),
+            _parse,
+            "EXPERIMENT_PACKAGE",
         )
+        records.update(parsed)
+        if failures:
+            LOGGER.warning(
+                "batch %d: %d package(s) did not parse; ENA fallback covers them",
+                index,
+                failures,
+            )
         LOGGER.info(
             "batch %d/%d parsed (%d records total)",
             index,
