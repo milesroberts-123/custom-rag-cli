@@ -512,6 +512,10 @@ It runs consecutive windows (`batch_index` 1 to 6), retries a failed window up
 to `--retries` times with a delay, and logs timestamps to `results/weekend.log`.
 Because each attempt re-runs `run.sh`, a retry also restarts the Ollama job and
 resumes from the cached chunks and fragments instead of redoing the window.
+Each job is also retried in place `--job-retries` times (default 2): transient
+Lustre errors on `/global/scratch` (`ESTALE`, `ESHUTDOWN`) fail a job after a
+few seconds, and a second attempt normally succeeds — without it a single
+filesystem hiccup withholds the whole window's table update.
 Keep `--size` at or below ~6000 runs; the model-server job is capped at 12 h.
 
 ## Validation

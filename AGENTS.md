@@ -176,7 +176,9 @@ lint/format/test checks in CI.
   chains `batch_index` windows and retries a failed window by re-invoking
   `run.sh` (which restarts the model server), so an interrupted window resumes
   from cached chunks instead of stalling for days. `--size` must stay at or
-  below ~6000 runs because the Ollama job is capped at 12 h.
+  below ~6000 runs because the Ollama job is capped at 12 h. It passes
+  `--retries 2` to Snakemake so transient `/global/scratch` failures (ESTALE,
+  ESHUTDOWN) retry in place instead of wasting the window.
 - Exposure responses with contradictory flags (`other` alongside grounded
   terms, or `other` with `no_condition`) are resolved in
   `workflow/scripts/exposure_validation.py`: grounded terms win, and without

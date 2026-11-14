@@ -18,6 +18,9 @@
 #   --start N       first batch_index (default 1)
 #   --retries N     attempts per window before giving up (default 3)
 #   --retry-delay S seconds between attempts (default 300)
+#   --job-retries N Snakemake retries per failed job (default 2). Lustre throws
+#                   transient ESTALE/ESHUTDOWN on /global/scratch; a retried job
+#                   almost always succeeds and saves the whole window.
 #   --samples PATH  sample sheet (default config/samples_all.tsv)
 #   --dry-run       print the windows instead of submitting anything
 #   -- ARGS...      extra arguments passed through to snakemake
@@ -31,6 +34,7 @@ WINDOWS=6
 START=1
 RETRIES=3
 RETRY_DELAY=300
+JOB_RETRIES=2
 SAMPLES=config/samples_all.tsv
 EXTRA=()
 DRY=0
@@ -46,6 +50,7 @@ while [[ $# -gt 0 ]]; do
     --start) START="$2"; shift 2 ;;
     --retries) RETRIES="$2"; shift 2 ;;
     --retry-delay) RETRY_DELAY="$2"; shift 2 ;;
+    --job-retries) JOB_RETRIES="$2"; shift 2 ;;
     --samples) SAMPLES="$2"; shift 2 ;;
     --dry-run) DRY=1; shift ;;
     -h | --help) usage; exit 0 ;;
@@ -69,7 +74,7 @@ if [[ -z "${TMUX:-}" ]]; then
     log "warning: not inside tmux; an SSH drop will kill this loop"
 fi
 
-log "driver start: size=$SIZE windows=$WINDOWS start=$START retries=$RETRIES"
+log "driver start: size=$SIZE windows=$WINDOWS start=$START retries=$RETRIES job-retries=$JOB_RETRIES"
 log "samples=$SAMPLES extra=${EXTRA[*]:-none}"
 
 for ((i = 0; i < WINDOWS; i++)); do
@@ -78,12 +83,12 @@ for ((i = 0; i < WINDOWS; i++)); do
     while :; do
         log "window $INDEX ($SIZE runs): attempt $ATTEMPT/$RETRIES"
         if ((DRY)); then
-            log "dry run: run.sh --config samples=$SAMPLES batch_size=$SIZE batch_index=$INDEX --keep-going"
+            log "dry run: run.sh --config samples=$SAMPLES batch_size=$SIZE batch_index=$INDEX --keep-going --retries $JOB_RETRIES"
             break
         fi
         if bash workflow/savio/run.sh \
             --config samples="$SAMPLES" batch_size="$SIZE" batch_index="$INDEX" \
-            --keep-going "${EXTRA[@]+"${EXTRA[@]}"}"; then
+            --keep-going --retries "$JOB_RETRIES" "${EXTRA[@]+"${EXTRA[@]}"}"; then
             log "window $INDEX: complete"
             break
         fi
