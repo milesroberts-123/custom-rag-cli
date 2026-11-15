@@ -61,6 +61,7 @@ def test_ncbi_records_carry_source(tmp_path, monkeypatch):
                 api_key_env="",
                 batch_size=10,
                 max_retries=1,
+                ena_batch_size=100,
             ),
         ),
         raising=False,
@@ -89,11 +90,14 @@ def test_ena_fallback(tmp_path, monkeypatch, caplog):
         monkeypatch.setattr(fetch_biosample, "fetch_efetch", fake_efetch)
         ena_calls = []
 
-        def fake_ena(accession):
-            ena_calls.append(accession)
-            return fetch_biosample.parse_ena_sample(ENA_FIXTURE.read_bytes())
+        def fake_ena(accessions):
+            ena_calls.append(list(accessions))
+            record = fetch_biosample.parse_ena_sample(ENA_FIXTURE.read_bytes())
+            return {
+                accession: dict(record, accession=accession) for accession in accessions
+            }
 
-        monkeypatch.setattr(fetch_biosample, "_ena_record", fake_ena)
+        monkeypatch.setattr(fetch_biosample, "_ena_request", fake_ena)
         output = tmp_path / "results/metadata/biosample/SAMEA112139654.json"
         monkeypatch.setattr(
             fetch_biosample,
@@ -106,6 +110,7 @@ def test_ena_fallback(tmp_path, monkeypatch, caplog):
                     api_key_env="",
                     batch_size=10,
                     max_retries=1,
+                    ena_batch_size=100,
                 ),
             ),
             raising=False,
@@ -116,10 +121,12 @@ def test_ena_fallback(tmp_path, monkeypatch, caplog):
     assert record["fetch_source"] == "ena"
     assert record["attributes"]["cultivar"] == "Columbia"
     assert ncbi_calls == [("SAMEA112139654",)]
-    assert ena_calls == ["SAMEA112139654"]
+    assert ena_calls == [["SAMEA112139654"]]
     messages = [entry.message for entry in caplog.records]
     assert any("falling back to ENA" in message for message in messages)
-    assert any("fetched SAMEA112139654 from ENA" in message for message in messages)
+    assert any(
+        "ENA fallback: 1 of 1 accessions recovered" in message for message in messages
+    )
 
 
 def test_both_sources_missing_raises(tmp_path, monkeypatch):
@@ -130,7 +137,7 @@ def test_both_sources_missing_raises(tmp_path, monkeypatch):
         "fetch_efetch",
         lambda *args, **kwargs: b"<BioSampleSet></BioSampleSet>",
     )
-    monkeypatch.setattr(fetch_biosample, "_ena_record", lambda accession: None)
+    monkeypatch.setattr(fetch_biosample, "_ena_request", lambda accessions: None)
     output = tmp_path / "results/metadata/biosample/SAMEA9.json"
     monkeypatch.setattr(
         fetch_biosample,
@@ -143,6 +150,7 @@ def test_both_sources_missing_raises(tmp_path, monkeypatch):
                 api_key_env="",
                 batch_size=10,
                 max_retries=1,
+                ena_batch_size=100,
             ),
         ),
         raising=False,
@@ -165,16 +173,18 @@ def test_ena_fallback_skips_existing_outputs(tmp_path, monkeypatch):
         lambda *args, **kwargs: b"<BioSampleSet></BioSampleSet>",
     )
 
-    def fake_ena(accession):
-        assert accession == "SAMEA112139655"
+    def fake_ena(accessions):
+        assert list(accessions) == ["SAMEA112139655"]
         return {
-            "accession": accession,
-            "organism": "ena",
-            "attributes": {},
-            "fetch_source": "ena",
+            "SAMEA112139655": {
+                "accession": "SAMEA112139655",
+                "organism": "ena",
+                "attributes": {},
+                "fetch_source": "ena",
+            }
         }
 
-    monkeypatch.setattr(fetch_biosample, "_ena_record", fake_ena)
+    monkeypatch.setattr(fetch_biosample, "_ena_request", fake_ena)
     monkeypatch.setattr(
         fetch_biosample,
         "snakemake",
@@ -186,6 +196,7 @@ def test_ena_fallback_skips_existing_outputs(tmp_path, monkeypatch):
                 api_key_env="",
                 batch_size=10,
                 max_retries=1,
+                ena_batch_size=100,
             ),
         ),
         raising=False,
@@ -198,3 +209,61 @@ def test_ena_fallback_skips_existing_outputs(tmp_path, monkeypatch):
     }
     record = json.loads(output.read_text())
     assert record["fetch_source"] == "ena"
+
+
+MINI_SET = b"""<?xml version="1.0"?>
+<SAMPLE_SET>
+  <SAMPLE accession="SAMEA1"><SAMPLE_NAME><SCIENTIFIC_NAME>Arabidopsis</SCIENTIFIC_NAME></SAMPLE_NAME>
+    <SAMPLE_ATTRIBUTES><SAMPLE_ATTRIBUTE><TAG>cultivar</TAG><VALUE>Col-0</VALUE></SAMPLE_ATTRIBUTE></SAMPLE_ATTRIBUTES>
+  </SAMPLE>
+  <SAMPLE accession="SAMEA2"><SAMPLE_NAME><SCIENTIFIC_NAME>Arabidopsis</SCIENTIFIC_NAME></SAMPLE_NAME>
+  </SAMPLE>
+</SAMPLE_SET>"""
+
+
+def test_parse_ena_sample_set_reads_every_sample():
+    records = fetch_biosample.parse_ena_sample_set(MINI_SET)
+    assert set(records) == {"SAMEA1", "SAMEA2"}
+    assert records["SAMEA1"]["attributes"]["cultivar"] == "Col-0"
+
+
+def test_ena_records_batches_requests(monkeypatch):
+    calls = []
+
+    def fake_request(accessions):
+        calls.append(list(accessions))
+        return {
+            a: {"accession": a, "attributes": {}, "fetch_source": "ena"}
+            for a in accessions
+        }
+
+    monkeypatch.setattr(fetch_biosample, "_ena_request", fake_request)
+    records = fetch_biosample._ena_records(["A1", "A2", "A3"], batch_size=2)
+    assert set(records) == {"A1", "A2", "A3"}
+    assert calls == [["A1", "A2"], ["A3"]]
+
+
+def test_ena_records_split_a_failed_batch(monkeypatch):
+    calls = []
+
+    def fake_request(accessions):
+        calls.append(list(accessions))
+        if len(accessions) > 1:
+            return None  # e.g. HTTP 400 on the combined request
+        return {accessions[0]: {"accession": accessions[0], "attributes": {}}}
+
+    monkeypatch.setattr(fetch_biosample, "_ena_request", fake_request)
+    records = fetch_biosample._ena_records(["A1", "A2"], batch_size=2)
+    assert set(records) == {"A1", "A2"}
+    assert calls == [["A1", "A2"], ["A1"], ["A2"]]
+
+
+def test_ena_records_retries_accessions_missing_from_a_batch(monkeypatch):
+    def fake_request(accessions):
+        if len(accessions) > 1:
+            return {accessions[0]: {"accession": accessions[0], "attributes": {}}}
+        return {accessions[0]: {"accession": accessions[0], "attributes": {}}}
+
+    monkeypatch.setattr(fetch_biosample, "_ena_request", fake_request)
+    records = fetch_biosample._ena_records(["A1", "A2"], batch_size=2)
+    assert set(records) == {"A1", "A2"}

@@ -72,11 +72,14 @@ def test_total_rna_input_does_not_override_polya_selection():
     assert category == rna.MRNA
 
 
-def test_cdna_without_selection_is_ambiguous():
-    assert (
-        _classify(sra={"library_strategy": "RNA-Seq", "library_selection": "cDNA"})
-        is None
+def test_rnaseq_with_cdna_is_mrna():
+    # Was ambiguous (deferred to the model) before the strategy fallback; the
+    # model answered unknown and the run was excluded. An RNA-Seq strategy is
+    # itself evidence of a transcriptome library.
+    category, _, _ = _classify(
+        sra={"library_strategy": "RNA-Seq", "library_selection": "cDNA"}
     )
+    assert category == rna.MRNA
 
 
 def test_conflicting_signals_are_unknown():
@@ -179,7 +182,7 @@ def test_classify_one_missing_metadata_is_unknown():
         "SAMN2",
         "SRR2",
         {"attributes": {}},
-        {"library_strategy": "RNA-Seq"},
+        {},
         params,
     )
     assert result["rna_type"] == rna.UNKNOWN
@@ -193,3 +196,63 @@ def test_exclusion_reasons():
         aggregate._exclusion_reason({"rna_type": "total_rna"})
         == "rna_type_total_rna_not_accepted"
     )
+
+
+# --- strategy fallback -------------------------------------------------------
+# Window 1-3 exclusions: 9,870 of 11,136 excluded runs were RNA-Seq libraries
+# whose selection value (cDNA, PCR, RANDOM, RT-PCR, unspecified) the selection
+# rules do not name. They abstained to the decision model, which answered
+# unknown, so the runs were dropped before labeling.
+
+
+def test_rnaseq_with_cdna_selection_is_mrna():
+    category, subtype, evidence = _classify(
+        sra={"library_strategy": "RNA-Seq", "library_selection": "cDNA"}
+    )
+    assert category == rna.MRNA
+    assert subtype is None
+    assert "RNA-Seq" in evidence
+
+
+def test_rnaseq_with_pcr_or_random_selection_is_mrna():
+    for selection in ("PCR", "RANDOM", "RT-PCR", "RANDOM PCR", "unspecified"):
+        category, _, _ = _classify(
+            sra={"library_strategy": "RNA-Seq", "library_selection": selection}
+        )
+        assert category == rna.MRNA, selection
+
+
+def test_transcriptomic_source_without_strategy_is_mrna():
+    category, _, _ = _classify(
+        sra={
+            "library_strategy": "OTHER",
+            "library_source": "TRANSCRIPTOMIC",
+            "library_selection": "cDNA",
+        }
+    )
+    assert category == rna.MRNA
+
+
+def test_strategy_fallback_does_not_override_other_categories():
+    # Small RNA libraries keep their call...
+    category, subtype, _ = _classify(
+        sra={"library_strategy": "RNA-Seq", "library_selection": "size fractionation"}
+    )
+    assert category == rna.SMALL
+
+    # ...as do ribo-depleted and non-RNA libraries.
+    category, _, _ = _classify(
+        sra={"library_strategy": "RNA-Seq", "library_selection": "RiboZero"}
+    )
+    assert category == rna.RIBO
+
+    category, _, _ = _classify(sra={"library_strategy": "WGS"})
+    assert category == rna.NOT_RNA
+
+
+def test_strategy_fallback_keeps_total_rna_text_evidence():
+    category, _, _ = _classify(
+        biosample={"attributes": {"rna type": "total RNA"}},
+        sra={"library_strategy": "RNA-Seq", "library_selection": "cDNA"},
+    )
+    assert category == rna.TOTAL

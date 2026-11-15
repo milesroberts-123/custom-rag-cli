@@ -18,6 +18,10 @@ ncbi:
   api_key_env: NCBI_API_KEY
   batch_size: 200
   sra_batch_size: 50
+  # ENA's XML API accepts comma-separated accessions; its BioSample fallback is
+  # the serial gate on every window (2,425 requests at ~1/s = ~38 min), so fetch
+  # them in batches and split a batch only when a request fails.
+  ena_batch_size: 100
   max_retries: 5
 
 peco:
@@ -198,9 +202,19 @@ germplasm:
     - ecotype
     - cultivar
     - strain
+    - is_hybrid
     - sample name
     - description
     - tissue
+  # ENA's checklist records `is_hybrid` as Hybrid/Inbred/NTC. The model labelled
+  # 382 Inbred samples from a project titled "... A. thaliana hybrids" as
+  # hybrids (5,166 runs) at confidence 0.63, above the review threshold, so a
+  # structured inbred value vetoes a hybrid call.
+  inbred_values:
+    - inbred
+    - homozygous
+    - true-breeding
+    - true breeding
   natural_accessions:
     - Col-0
     - Col0

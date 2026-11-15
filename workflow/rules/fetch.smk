@@ -10,6 +10,7 @@ rule fetch_biosamples:
         email=config["ncbi"]["email"],
         api_key_env=config["ncbi"]["api_key_env"],
         batch_size=config["ncbi"]["batch_size"],
+        ena_batch_size=config["ncbi"]["ena_batch_size"],
         max_retries=config["ncbi"]["max_retries"],
     script:
         "../scripts/fetch_biosample.py"

@@ -36,6 +36,9 @@ properties:
       batch_size:
         type: integer
         default: 200
+      ena_batch_size:
+        type: integer
+        default: 100
       sra_batch_size:
         type: integer
         default: 50
@@ -235,9 +238,16 @@ properties:
           - ecotype
           - cultivar
           - strain
+          - is_hybrid
           - sample name
           - description
           - tissue
+      inbred_values:
+        type: array
+        items:
+          type: string
+        default:
+          - inbred
       natural_accessions:
         type: array
         items:

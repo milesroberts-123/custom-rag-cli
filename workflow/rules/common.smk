@@ -76,6 +76,11 @@ CHUNKS = [
 CHUNK_IDS = list(range(len(CHUNKS)))
 
 
+def window_run_groups():
+    """(BioSample, [runs]) pairs for the whole window, used by mixed_runs."""
+    return [[samn, runs_of(samn)] for samn in BIOSAMPLES]
+
+
 def chunk_samns(wildcards):
     """BioSample accessions handled by one chunk job."""
     return CHUNKS[int(wildcards.chunk)]

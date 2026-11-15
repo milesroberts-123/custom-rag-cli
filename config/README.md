@@ -47,6 +47,7 @@ Path to the sample sheet. Default: `config/samples.tsv`.
 | `api_key_env` | `NCBI_API_KEY` | Environment variable containing an NCBI API key. Optional, but raises the rate limit. |
 | `batch_size` | `200` | BioSample accessions per efetch request. |
 | `sra_batch_size` | `50` | SRA run accessions per efetch request. |
+| `ena_batch_size` | `100` | BioSample accessions per ENA XML request (the ENA fallback for records NCBI's mirror lacks). Batches split recursively when a request fails. |
 | `max_retries` | `5` | Retry attempts for NCBI requests. |
 
 ## `peco`

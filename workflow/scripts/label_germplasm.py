@@ -129,6 +129,53 @@ def _matched_lines(structured, expressions):
     ]
 
 
+HYBRID_KEYS = ("is hybrid", "ishybrid", "is_hybrid")
+
+
+def _is_hybrid_line(line):
+    """True when an evidence line comes from the ``is_hybrid`` attribute."""
+    name = line.partition(":")[0].strip().lower().replace("_", " ")
+    if name.startswith("sra "):
+        name = name[4:]
+    return name in HYBRID_KEYS
+
+
+def _hybrid_values(values):
+    """Values of the structured ``is_hybrid`` attribute, if present."""
+    return [line.partition(":")[2].strip() for line in values if _is_hybrid_line(line)]
+
+
+def _hybrid_guard(category, values, inbred_values, accessions, patterns, rule_keys):
+    """Veto a hybrid call when the record states the line is inbred.
+
+    ENA's checklist carries ``is_hybrid`` (Hybrid/Inbred/NTC). A project titled
+    "... A. thaliana hybrids" had 382 Inbred samples labelled hybrid by the
+    model at confidence 0.63 — above the review threshold — so the structured
+    attribute has to override the study title.
+    """
+    if category != "hybrid":
+        return category, "", None
+    inbred = {value.strip().lower() for value in inbred_values}
+    seen = [value for value in _hybrid_values(values) if value.lower() in inbred]
+    if not seen:
+        return category, "", None
+
+    # Re-run the rules without the is_hybrid line so a real mutant/transgenic
+    # signal still wins; otherwise the line is an unmodified inbred accession.
+    filtered = [line for line in values if not _is_hybrid_line(line)]
+    alternative, alternative_evidence, _ = _rule_label(
+        filtered, accessions, patterns, rule_keys
+    )
+    note = f"is_hybrid: {seen[0]}"
+    if alternative and alternative != "hybrid":
+        return (
+            alternative,
+            "; ".join(part for part in (alternative_evidence, note) if part),
+            "rules_override",
+        )
+    return "natural_accession", note, "rules_override"
+
+
 def _rule_label(values, accessions, patterns, rule_keys):
     structured = _structured_values(values, rule_keys)
     if not structured:
@@ -279,6 +326,21 @@ def _label_one(samn, runs, inputs, params):
                     descriptions,
                 )
                 source = "chat_fallback" if fell_back else "chat"
+
+    if category is not None:
+        category, guard_evidence, guard_source = _hybrid_guard(
+            category,
+            values,
+            list(params.get("inbred_values") or []),
+            list(params["natural_accessions"]),
+            dict(params["patterns"]),
+            list(params["rule_attribute_keys"]),
+        )
+        if guard_source:
+            evidence = guard_evidence
+            source = guard_source
+            confidence = None
+            probabilities = None
 
     if category is None:
         category = UNKNOWN

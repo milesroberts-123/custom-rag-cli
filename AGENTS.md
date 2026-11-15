@@ -168,6 +168,23 @@ lint/format/test checks in CI.
   and `label_study_condition` maps that quote to a PECO label
   (`source: paper_rules`) only when the summary is not low-confidence and the
   setting maps via `paper.study_setting_map`.
+- RNA-type classification has a strategy fallback: `library_strategy: RNA-Seq`
+  (or a transcriptomic source with an unnamed strategy) yields `mrna` when no
+  selection rule produced another category. Without it, cDNA/PCR/RANDOM/
+  RT-PCR/unspecified selections abstained to the decision model, which answered
+  `unknown` and excluded 9,870 of 11,136 runs. Do not let this override
+  small-RNA, ribo-depleted, total-RNA, or non-RNA calls.
+- `germplasm.inbred_values` pairs with the ENA `is_hybrid` attribute:
+  `is_hybrid: Inbred` vetoes a `hybrid` call (source `rules_override`), because
+  the model followed a project title instead. Re-run the germplasm rules after
+  changing those values.
+- `mixed_runs` computes the `mixed_run_context` set once per window
+  (`results/mixed/{window}.json`); `sample_rows` reads it. Do not put the
+  per-window SRA scan back inside each chunk job — it re-read thousands of
+  files per chunk (~10 min each).
+- The ENA BioSample fallback fetches `ncbi.ena_batch_size` accessions per
+  request and splits a batch only on failure; it was the serial gate on every
+  window (~38 min at one request per accession).
 - Review is gated on model uncertainty only: confidence thresholds plus the
   AthRDB cross-check and `mixed_run_context`. `OTHER`/`unknown` labels are
   results, not triggers — flagging them enqueued 94% of a window. Do not

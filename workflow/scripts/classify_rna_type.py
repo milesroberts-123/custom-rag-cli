@@ -205,6 +205,32 @@ def _selection_candidates(selection, candidates):
         _add(candidates, SMALL, f"library_selection: {selection}")
 
 
+RNA_STRATEGIES = {"rna-seq", "rna seq"}
+TRANSCRIPTOMIC_SOURCES = {"transcriptomic"}
+
+
+def _strategy_fallback(sra, candidates):
+    """Classify plain RNA-seq libraries that carry no specific selection value.
+
+    SRA records routinely pair ``library_strategy: RNA-Seq`` with a selection
+    the rules do not name (cDNA, PCR, RANDOM, unspecified, RT-PCR). Those are
+    transcriptome libraries, but abstaining sent them to the decision model,
+    which answered ``unknown`` — 9,870 of 11,136 excluded runs in the first
+    windows were RNA-seq. Fall back to mRNA only when no other category was
+    found, so rRNA-depleted, small-RNA, and non-RNA libraries keep their calls.
+    """
+    if any(not key.startswith(f"{SMALL}:") for key in candidates):
+        return
+    strategy = (sra.get("library_strategy") or "").strip().lower()
+    source = (sra.get("library_source") or "").strip().lower()
+    is_rna = strategy in RNA_STRATEGIES or (
+        strategy in ("", "other") and source in TRANSCRIPTOMIC_SOURCES
+    )
+    if is_rna:
+        label = sra.get("library_strategy") or "RNA-Seq"
+        _add(candidates, MRNA, f"library_strategy: {label}")
+
+
 def _text_candidates(lines, candidates):
     text = "\n".join(lines)
     for category, patterns in TEXT_PATTERNS.items():
@@ -262,6 +288,7 @@ def _classify_rules(biosample, sra, attribute_keys):
     _selection_candidates(sra.get("library_selection"), candidates)
     lines = _evidence_lines(biosample, sra, attribute_keys)
     _text_candidates(lines, candidates)
+    _strategy_fallback(sra, candidates)
     return _resolve(candidates)
 
 

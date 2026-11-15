@@ -229,3 +229,58 @@ def test_systemone_404_raises_actionable_error(monkeypatch):
         assert "/v1/systemone" in str(error)
     else:
         raise AssertionError("expected RuntimeError for a missing decision model")
+
+
+# --- germplasm: is_hybrid veto -------------------------------------------------
+# PRJEB51241 is titled "RNA-seq library of A. thaliana hybrids" and every sample
+# was labelled hybrid at confidence 0.63 (above the 0.5 review threshold), but
+# its BioSamples record is_hybrid=Inbred for 382 of 576 samples (5,166 runs).
+
+INBRED = ["inbred", "homozygous", "true-breeding"]
+
+
+def test_inbred_attribute_vetoes_hybrid_label():
+    values = [
+        "is_hybrid: Inbred",
+        "genotype: p6967",
+        "organism: Arabidopsis thaliana",
+    ]
+    category, evidence, source = germ._hybrid_guard(
+        "hybrid", values, INBRED, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
+    )
+    assert category == "natural_accession"
+    assert source == "rules_override"
+    assert "is_hybrid: Inbred" in evidence
+
+
+def test_hybrid_attribute_keeps_hybrid_label():
+    values = ["is_hybrid: Hybrid", "genotype: p6967"]
+    category, _, source = germ._hybrid_guard(
+        "hybrid", values, INBRED, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
+    )
+    assert category == "hybrid"
+    assert source is None
+
+
+def test_inbred_veto_prefers_a_mutant_signal():
+    values = ["is_hybrid: Inbred", "genotype: atg5-1 knockout"]
+    category, evidence, source = germ._hybrid_guard(
+        "hybrid",
+        values,
+        INBRED,
+        GERM_ACCESSIONS,
+        {"mutant": [r"\bknockout\b"]},
+        GERM_RULE_KEYS,
+    )
+    assert category == "mutant"
+    assert source == "rules_override"
+    assert "knockout" in evidence
+
+
+def test_guard_leaves_other_labels_alone():
+    values = ["is_hybrid: Inbred"]
+    category, _, source = germ._hybrid_guard(
+        "mutant", values, INBRED, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
+    )
+    assert category == "mutant"
+    assert source is None

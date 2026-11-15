@@ -49,6 +49,7 @@ rule label_germplasm:
         attribute_keys=config["germplasm"]["attribute_keys"],
         rule_attribute_keys=config["germplasm"]["rule_attribute_keys"],
         natural_accessions=config["germplasm"]["natural_accessions"],
+        inbred_values=config["germplasm"]["inbred_values"],
         patterns=config["germplasm"]["patterns"],
         descriptions=config["germplasm"]["descriptions"],
     script:
@@ -98,6 +99,20 @@ rule label_study_condition:
         "../scripts/label_study_condition.py"
 
 
+rule mixed_runs:
+    input:
+        samples=config["samples"],
+        sra=expand("results/metadata/sra/{run}.json", run=RUNS),
+    output:
+        "results/mixed/{window}.json",
+    conda:
+        "../envs/aggregate.yaml"
+    params:
+        groups=window_run_groups(),
+    script:
+        "../scripts/mixed_runs.py"
+
+
 rule sample_rows:
     input:
         rna_type="results/chunks/rna_type/{chunk}.done",
@@ -106,9 +121,9 @@ rule sample_rows:
         study="results/chunks/study_condition/{chunk}.done",
         exposure=exposure_chunks_for_sample_rows,
         biosample=chunk_biosamples,
-        sra=chunk_sra,
         summaries=chunk_summaries,
         index="results/peco/peco_index",
+        mixed="results/mixed/{window}.json",
     output:
         "results/rows/{window}-{chunk}.tsv",
     conda:

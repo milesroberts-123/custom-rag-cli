@@ -38,6 +38,8 @@ def main():
         for term in json.loads((Path(snakemake.input.index) / "terms.json").read_text())
     }
 
+    mixed = json.loads(Path(snakemake.input.mixed).read_text())
+
     written = aggregate.build_rows(
         sheet,
         snakemake.params.samns,
@@ -51,6 +53,7 @@ def main():
             "germplasm": list(snakemake.params.germplasm_keys),
             "growth_condition": list(snakemake.params.growth_keys),
         },
+        mixed=mixed,
     )
     print(
         f"window {snakemake.wildcards.window} chunk {snakemake.wildcards.chunk}: "

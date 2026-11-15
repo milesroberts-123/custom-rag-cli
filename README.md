@@ -155,11 +155,21 @@ The workflow classifies the RNA species from SRA `library_strategy`,
 BioSample attributes. It does not use the paper, because a BioProject can mix
 library types.
 
-- `mrna` — polyA, poly(A), or oligo(dT) evidence.
+- `mrna` — polyA, poly(A), or oligo(dT) evidence, or a plain `RNA-Seq`
+  library whose selection value the rules do not name (cDNA, PCR, RANDOM,
+  RT-PCR, unspecified). An RNA-Seq strategy is itself evidence of a
+  transcriptome library; abstaining on those selection values sent 9,870 of
+  11,136 excluded runs to the decision model, which answered `unknown`.
 - `ribo_depleted_total_rna` — RiboZero or rRNA-depleted total RNA.
 - `total_rna` — total RNA without depletion.
 - `small_rna` — miRNA, piRNA, siRNA, snoRNA, tRNA, or other small RNA.
 - `lncrna`, `circrna`, `other_rna`, `not_rna`, `unknown`.
+
+A structured `is_hybrid` BioSample attribute (ENA checklist, values
+Hybrid/Inbred/NTC) vetoes a `hybrid` germplasm call: a project titled
+"... A. thaliana hybrids" had 382 Inbred samples labelled hybrid at confidence
+0.63, above the review threshold. The rules layer re-checks the remaining
+structured fields, so a mutant/transgenic signal still wins.
 
 By default, `mrna` and `ribo_depleted_total_rna` continue to labeling. Change
 `rna_type.accepted_rna_types` in `config/config.yaml` to alter that policy.

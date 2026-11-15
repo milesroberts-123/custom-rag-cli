@@ -186,16 +186,22 @@ def _athrdb_path(run):
     return Path("results/metadata/athrdb") / f"{run}.json"
 
 
-def _mixed_run_samples(sheet):
-    """BioSamples whose runs disagree on experiment title or library name."""
-    groups = sheet.groupby("biosample")["run"]
+def mixed_samples(groups, sra_dir="results/metadata/sra"):
+    """BioSamples whose runs disagree on experiment title or library name.
+
+    ``groups`` is an iterable of ``(biosample, [run, ...])``. Computed once per
+    window by the ``mixed_runs`` rule: doing it inside every ``sample_rows``
+    chunk re-read thousands of SRA files per job (625 job-minutes in one
+    window, ~10 minutes each for a JSON read).
+    """
+    sra_dir = Path(sra_dir)
     mixed = set()
     for samn, runs in groups:
         if len(runs) < 2:
             continue
         titles, names = set(), set()
         for run in runs:
-            path = Path("results/metadata/sra") / f"{run}.json"
+            path = sra_dir / f"{run}.json"
             if not path.exists():
                 continue
             record = json.loads(path.read_text())
@@ -204,6 +210,12 @@ def _mixed_run_samples(sheet):
         if len(titles) > 1 or len(names) > 1:
             mixed.add(samn)
     return mixed
+
+
+def _mixed_run_samples(sheet):
+    """BioSamples whose runs disagree, computed from a sample sheet."""
+    groups = [(samn, runs.tolist()) for samn, runs in sheet.groupby("biosample")["run"]]
+    return mixed_samples(groups)
 
 
 FRAGMENT_COLUMNS = LABEL_COLUMNS + ["included", "exclusion_reason"]
@@ -315,6 +327,7 @@ def build_rows(
     destination,
     attributes=None,
     metadata_keys=None,
+    mixed=None,
 ):
     """Build one window-chunk fragment: one row per run, included or excluded.
 
@@ -326,7 +339,10 @@ def build_rows(
     terms_by_id = terms
     attributes = attributes or {}
     metadata_keys = metadata_keys or {}
-    mixed = _mixed_run_samples(sheet)
+    if mixed is None:
+        mixed = _mixed_run_samples(sheet)
+    else:
+        mixed = set(mixed)
     wanted = set(samns)
     rows = []
 

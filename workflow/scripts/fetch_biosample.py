@@ -55,7 +55,22 @@ def parse_ena_sample(xml_bytes):
     a later attribute overwrites an earlier one in the attributes dict.
     """
     root = ET.fromstring(xml_bytes)
-    sample = root.find(".//SAMPLE")
+    return _ena_sample_record(root.find(".//SAMPLE"))
+
+
+def parse_ena_sample_set(xml_bytes):
+    """Parse a multi-accession ENA response into accession -> record."""
+    root = ET.fromstring(xml_bytes)
+    records = {}
+    for sample in root.findall(".//SAMPLE"):
+        record = _ena_sample_record(sample)
+        if record and record.get("accession"):
+            records[record["accession"]] = record
+    return records
+
+
+def _ena_sample_record(sample):
+    """Convert one ``<SAMPLE>`` element into the normalized record shape."""
     if sample is None:
         return None
     accession = sample.get("accession")
@@ -74,27 +89,82 @@ def parse_ena_sample(xml_bytes):
     }
 
 
-def _ena_record(accession):
-    """Fetch one BioSample record from ENA, retrying transient failures."""
+def _ena_request(accessions):
+    """Request one batch from ENA; returns None when the batch must be split."""
     time.sleep(ENA_RATE_LIMIT_SECONDS)
     delay = 1.0
+    url = ENA_XML_URL.format(accession=",".join(accessions))
     for attempt in range(3):
         try:
-            response = requests.get(
-                ENA_XML_URL.format(accession=accession), timeout=120
-            )
+            response = requests.get(url, timeout=120)
             if response.status_code in (429, 502, 503, 504):
                 time.sleep(delay)
                 delay *= 2
                 continue
+            if response.status_code in (400, 404, 413, 414):
+                return None
             response.raise_for_status()
-            return parse_ena_sample(response.content)
+            return parse_ena_sample_set(response.content)
         except requests.RequestException:
             if attempt == 2:
                 return None
             time.sleep(delay)
             delay *= 2
     return None
+
+
+def _ena_record(accession):
+    """Fetch one BioSample record from ENA, retrying transient failures."""
+    records = _ena_request([accession])
+    return records.get(accession) if records else None
+
+
+def _ena_records(accessions, batch_size):
+    """Fetch many BioSamples with batched requests, splitting failures.
+
+    One request per accession cost ~38 minutes per 5,000-run window and gated
+    every downstream rule. ENA accepts comma-separated accessions, so ask for
+    ``batch_size`` at a time and halve a batch only when the request fails.
+    Records ENA does not return are retried individually, which preserves the
+    previous behaviour of logging each genuinely missing accession.
+    """
+    records = {}
+    batches = [
+        accessions[i : i + batch_size] for i in range(0, len(accessions), batch_size)
+    ]
+    for index, batch in enumerate(batches, start=1):
+        LOGGER.info(
+            "ENA BioSample batch %d/%d (%d accessions)",
+            index,
+            len(batches),
+            len(batch),
+        )
+        stack = [batch]
+        while stack:
+            group = stack.pop()
+            parsed = _ena_request(group)
+            if parsed is None:
+                if len(group) == 1:
+                    LOGGER.warning("ENA returned no record for %s", group[0])
+                    continue
+                middle = len(group) // 2
+                stack.append(group[middle:])
+                stack.append(group[:middle])
+                continue
+            records.update(parsed)
+        LOGGER.info(
+            "batch %d/%d done (%d records so far)", index, len(batches), len(records)
+        )
+
+    # A successful batch response omits accessions ENA does not hold, so retry
+    # those one by one to distinguish "missing" from "batch was truncated".
+    for accession in accessions:
+        if accession in records:
+            continue
+        record = _ena_record(accession)
+        if record is not None:
+            records[accession] = record
+    return records
 
 
 from script_logging import setup as _setup
@@ -167,13 +237,17 @@ def main():
         LOGGER.warning(
             "%d accessions missing from NCBI; falling back to ENA", len(missing)
         )
-    for samn in missing:
-        record = _ena_record(samn)
-        if record is not None:
-            LOGGER.info("fetched %s from ENA", samn)
-            records[samn] = record
-        else:
-            LOGGER.warning("ENA returned no record for %s", samn)
+    if missing:
+        ena_batch_size = int(getattr(snakemake.params, "ena_batch_size", 100) or 100)
+        ena_records = _ena_records(missing, ena_batch_size)
+        for samn in missing:
+            if samn in ena_records:
+                records[samn] = ena_records[samn]
+        LOGGER.info(
+            "ENA fallback: %d of %d accessions recovered",
+            len(ena_records),
+            len(missing),
+        )
 
     unresolved = sorted(samn for samn, _ in todo if samn not in records)
     if unresolved:
