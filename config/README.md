@@ -83,8 +83,10 @@ Gene-expression subworkflow (`snakemake quant_all`).
 | Key | Description |
 |---|---|
 | `categories` | Allowed tissue categories. |
-| `keywords` | Keyword lists used by the rules fallback, keyed by category. |
-| `attribute_keys` | BioSample attribute names searched by the rules fallback. |
+| `keywords` | Keyword lists used by the rules fallback, keyed by category. Flower includes floral organs (ovary, sepal, stamen, anther, petal, carpel, gynoecium, androecium, microspore). |
+| `rule_attribute_keys` | Structured fields the rules layer may read; free text stays model evidence. |
+| `po_terms` | Plant Ontology ID to category map for ENA `plant structure` fields. `PO:0000014` (rosette leaf) maps to leaf and `PO:0009049` (inflorescence) to flower. |
+| `attribute_keys` | BioSample attribute names used as model evidence. |
 | `other_description` | Description of the `OTHER` category sent to the model. |
 
 ## `germplasm`

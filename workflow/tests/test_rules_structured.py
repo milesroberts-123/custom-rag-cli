@@ -333,3 +333,96 @@ def test_is_hybrid_inbred_defers_when_genotype_says_hybrid():
 
 def test_is_hybrid_ntc_abstains():
     assert _hybrid_rule(["is_hybrid: NTC"])[0] is None
+
+
+# --- tissue: PO IDs and flower organs discovered in the ENA records ----------
+# These were the only two unmapped Plant Ontology IDs in the fetched BioSamples;
+# 24 samples fell through to the model and landed in OTHER.
+
+PO_EXTRA = {
+    "PO:0000003": "whole_plant",
+    "PO:0009006": "shoot",
+    "PO:0009047": "shoot",
+    "PO:0009005": "root",
+    "PO:0025034": "leaf",
+    "PO:0000014": "leaf",
+    "PO:0009010": "seed",
+    "PO:0009046": "flower",
+    "PO:0009049": "flower",
+    "PO:0009001": "fruit",
+}
+FLOWER_KEYWORDS = {
+    **TISSUE_KEYWORDS,
+    "flower": [
+        "flower",
+        "inflorescence",
+        "pollen",
+        "ovary",
+        "sepal",
+        "stamen",
+        "anther",
+        "petal",
+        "carpel",
+        "gynoecium",
+        "androecium",
+        "microspore",
+    ],
+}
+
+
+TISSUE_CATEGORIES_WITH_FLOWER = [
+    *TISSUE_CATEGORIES,
+    "flower",
+    "seed",
+    "fruit",
+    "whole_plant",
+]
+
+
+def _tissue_category(value, keywords=None):
+    return tissue._rules_category(
+        [value],
+        TISSUE_CATEGORIES_WITH_FLOWER,
+        keywords or TISSUE_KEYWORDS,
+        PO_EXTRA,
+        TISSUE_RULE_KEYS,
+    )
+
+
+def test_rosette_leaf_po_id_maps_to_leaf():
+    assert _tissue_category("plant structure: PO:0000014") == "leaf"
+
+
+def test_inflorescence_po_id_maps_to_flower():
+    assert _tissue_category("plant structure: PO:0009049") == "flower"
+
+
+def test_flower_organ_keywords_map_to_flower():
+    for value in (
+        "organism part: ovary",
+        "organism part: sepal",
+        "organism part: stamen",
+        "organism part: anther",
+        "organism part: microspore",
+    ):
+        assert _tissue_category(value, FLOWER_KEYWORDS) == "flower", value
+
+
+def test_flower_keywords_do_not_steal_shoot_or_root():
+    assert _tissue_category("organism part: stem", FLOWER_KEYWORDS) == "shoot"
+    assert _tissue_category("organism part: root", FLOWER_KEYWORDS) == "root"
+
+
+def test_shipped_config_maps_the_observed_po_ids():
+    """Guard the config, not just the helper: these IDs appear in ENA records."""
+    import yaml
+
+    config = yaml.safe_load(
+        (Path(__file__).resolve().parents[2] / "config" / "config.yaml").read_text()
+    )
+    po_terms = config["tissue"]["po_terms"]
+    assert po_terms["PO:0000014"] == "leaf"
+    assert po_terms["PO:0009049"] == "flower"
+    flower = set(config["tissue"]["keywords"]["flower"])
+    for keyword in ("ovary", "sepal", "stamen", "anther", "microspore"):
+        assert keyword in flower

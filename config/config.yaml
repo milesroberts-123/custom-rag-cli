@@ -136,6 +136,21 @@ tissue:
       - bud
       - buds
       - pollen
+      - ovary
+      - ovaries
+      - sepal
+      - sepals
+      - stamen
+      - stamens
+      - anther
+      - anthers
+      - petal
+      - petals
+      - carpel
+      - gynoecium
+      - androecium
+      - microspore
+      - microspores
     fruit:
       - fruit
       - silique
@@ -155,14 +170,18 @@ tissue:
     - plant anatomy
   # Plant Ontology IDs used by ENA in `plant structure` fields. These are
   # high-precision structured evidence, so they take precedence over keywords.
+  # Only four PO IDs appear in the ENA records fetched so far; the two that were
+  # missing made 24 samples fall through to the model and land in OTHER.
   po_terms:
     "PO:0000003": whole_plant
     "PO:0009006": shoot
     "PO:0009047": shoot
     "PO:0009005": root
     "PO:0025034": leaf
+    "PO:0000014": leaf # rosette leaf
     "PO:0009010": seed
     "PO:0009046": flower
+    "PO:0009049": flower # inflorescence
     "PO:0009001": fruit
   attribute_keys:
     - tissue
