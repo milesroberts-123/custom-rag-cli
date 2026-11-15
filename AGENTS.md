@@ -192,7 +192,10 @@ lint/format/test checks in CI.
 - `mixed_runs` computes the `mixed_run_context` set once per window
   (`results/mixed/{window}.json`); `sample_rows` reads it. Do not put the
   per-window SRA scan back inside each chunk job — it re-read thousands of
-  files per chunk (~10 min each).
+  files per chunk (~10 min each). Compare normalized experiment titles only
+  (`aggregate.normalize_title` strips `_Lane1`/`_part2`/`_rep3` suffixes) and
+  never library names: they identify the run, so comparing them flagged 654 of
+  771 multi-run samples in window 6.
 - The ENA BioSample fallback fetches `ncbi.ena_batch_size` accessions per
   request and splits a batch only on failure; it was the serial gate on every
   window (~38 min at one request per accession).

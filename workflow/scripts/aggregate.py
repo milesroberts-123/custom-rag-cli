@@ -8,6 +8,7 @@ reported, never silently dropped; rerun their window to finish them.
 """
 
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -186,28 +187,54 @@ def _athrdb_path(run):
     return Path("results/metadata/athrdb") / f"{run}.json"
 
 
+# Run-split suffixes: the same experiment sequenced in lanes, parts, or
+# technical replicates. They differ only by a trailing token, which is not a
+# condition difference.
+RUN_SUFFIX = re.compile(
+    r"(?:[ _-]*(?:lane|part|rep|replicate|run)[ _-]?\d+|_[rR]\d+|[ _-]l00\d)$",
+    re.IGNORECASE,
+)
+
+
+def normalize_title(title):
+    """Strip run-split suffixes so lane/part/rep variants compare equal."""
+    text = (title or "").strip()
+    while True:
+        stripped = RUN_SUFFIX.sub("", text).strip()
+        if stripped == text or not stripped:
+            break
+        text = stripped
+    return text.lower()
+
+
 def mixed_samples(groups, sra_dir="results/metadata/sra"):
-    """BioSamples whose runs disagree on experiment title or library name.
+    """BioSamples whose runs disagree on experiment title.
 
     ``groups`` is an iterable of ``(biosample, [run, ...])``. Computed once per
     window by the ``mixed_runs`` rule: doing it inside every ``sample_rows``
     chunk re-read thousands of SRA files per job (625 job-minutes in one
     window, ~10 minutes each for a JSON read).
+
+    Titles are normalized before comparison, because a sample split across
+    lanes or parts ("..._part2", "..._Lane1") is not a context difference.
+    Library names are not compared: they identify the individual run, so every
+    multi-run sample differs by construction (654 of 771 flags in window 6).
     """
     sra_dir = Path(sra_dir)
     mixed = set()
     for samn, runs in groups:
         if len(runs) < 2:
             continue
-        titles, names = set(), set()
+        titles = set()
         for run in runs:
             path = sra_dir / f"{run}.json"
             if not path.exists():
                 continue
             record = json.loads(path.read_text())
-            titles.add((record.get("experiment_title") or "").strip())
-            names.add((record.get("library_name") or "").strip())
-        if len(titles) > 1 or len(names) > 1:
+            title = (record.get("experiment_title") or "").strip()
+            if title:
+                titles.add(normalize_title(title))
+        if len(titles) > 1:
             mixed.add(samn)
     return mixed
 

@@ -29,6 +29,10 @@ NEUTRAL_GENOTYPE_TOKENS = {
     "type",
     "wildtype",
     "wt",
+    # "genotype: wild type genotype" is a Col-0 record; without this token the
+    # rules abstained and the model answered natural_accession at 0.99 for
+    # 3,975 samples.
+    "genotype",
     "na",
     "n/a",
     "none",

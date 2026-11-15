@@ -426,3 +426,22 @@ def test_shipped_config_maps_the_observed_po_ids():
     flower = set(config["tissue"]["keywords"]["flower"])
     for keyword in ("ovary", "sepal", "stamen", "anther", "microspore"):
         assert keyword in flower
+
+
+def test_wild_type_genotype_token_does_not_block_the_rules():
+    # 3,975 samples read "ecotype: Col-0; genotype: wild type genotype" and were
+    # sent to the model because "genotype" was not a neutral token.
+    values = ["ecotype: Col-0", "genotype: wild type genotype"]
+    category, _, source = germ._rule_label(
+        values, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
+    )
+    assert category == "natural_accession"
+    assert source == "rules"
+
+
+def test_opaque_genotype_still_abstains():
+    values = ["genotype: p6967"]
+    category, _, _ = germ._rule_label(
+        values, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
+    )
+    assert category is None

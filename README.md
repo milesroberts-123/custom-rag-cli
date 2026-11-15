@@ -90,8 +90,10 @@ a fixed order of non-overlapping windows:
   exposure,study_condition}/{samn}.json`): a sample's annotations describe the
   biological material, and the runs of one sample share them. `labels.tsv`
   keeps one row per run, so the review app and downstream consumers are
-  unchanged. Samples whose runs disagree on experiment title or library name
-  are flagged `mixed_run_context` for review. Retry granularity is a chunk: a
+  unchanged. Samples whose runs disagree on experiment title are flagged
+  `mixed_run_context` for review; titles are normalized first so lane, part,
+  and replicate suffixes compare equal, and per-run library names are not
+  compared (they differ by construction). Retry granularity is a chunk: a
   failed chunk redoes up to `label_chunk_size` samples. Exposure, the slowest
   layer, uses smaller chunks of `exposure_chunk_size` samples (default 25) so
   more of its jobs run concurrently. ATHRDB is fetched by its own target,

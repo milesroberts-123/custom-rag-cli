@@ -108,3 +108,51 @@ def test_build_rows_uses_the_precomputed_set(tmp_path, monkeypatch):
         tmp_path / "results/rows/0-0.tsv", sep="\t", dtype=str, keep_default_na=False
     )
     assert "mixed_run_context" in fragment["review_reasons"].iloc[0]
+
+
+# --- normalization ------------------------------------------------------------
+
+
+def test_lane_and_part_suffixes_are_not_mixed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _sra(tmp_path, "SRR1", "RNA-seq of Col-0_Lane1", "")
+    _sra(tmp_path, "SRR2", "RNA-seq of Col-0_Lane2", "")
+    assert aggregate.mixed_samples([("SAMN1", ["SRR1", "SRR2"])]) == set()
+
+
+def test_part_suffixes_are_not_mixed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _sra(tmp_path, "SRR1", "Raw reads: ng_py_014_SETI-sag101-ETI", "")
+    _sra(tmp_path, "SRR2", "Raw reads: ng_py_014_SETI-sag101-ETI_part2", "")
+    assert aggregate.mixed_samples([("SAMN1", ["SRR1", "SRR2"])]) == set()
+
+
+def test_replicate_suffixes_are_not_mixed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _sra(tmp_path, "SRR1", "ce_rep1", "")
+    _sra(tmp_path, "SRR2", "ce_rep2", "")
+    assert aggregate.mixed_samples([("SAMN1", ["SRR1", "SRR2"])]) == set()
+
+
+def test_library_name_differences_alone_are_not_mixed(tmp_path, monkeypatch):
+    # Library names identify the run, so every multi-run sample differs by
+    # construction; 654 of 771 flags came from comparing them.
+    monkeypatch.chdir(tmp_path)
+    _sra(tmp_path, "SRR1", "NextSeq 500 sequencing", "R1_Col_000")
+    _sra(tmp_path, "SRR2", "NextSeq 500 sequencing", "R1_Col_005")
+    assert aggregate.mixed_samples([("SAMN1", ["SRR1", "SRR2"])]) == set()
+
+
+def test_different_conditions_stay_mixed(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    _sra(tmp_path, "SRR1", "RNA-seq of Col-0 control", "")
+    _sra(tmp_path, "SRR2", "RNA-seq of Col-0 heat stress", "")
+    assert aggregate.mixed_samples([("SAMN1", ["SRR1", "SRR2"])]) == {"SAMN1"}
+
+
+def test_normalize_title_strips_nested_suffixes():
+    assert aggregate.normalize_title("Col-0_Lane2") == "col-0"
+    assert aggregate.normalize_title("x_part2_rep3") == "x"
+    assert aggregate.normalize_title("control") == "control"
+    # A time point is a condition, not a run split.
+    assert aggregate.normalize_title("Col-0 6h") == "col-0 6h"
