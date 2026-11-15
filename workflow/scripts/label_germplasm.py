@@ -7,7 +7,7 @@ from pathlib import Path
 
 from chunk_runner import run_chunk
 
-from evidence import evidence_lines, merge_sra
+from evidence import SAMPLE_PRECEDENCE, merge_sra, split_evidence
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -43,8 +43,13 @@ SYSTEM = (
     "Return only a JSON object."
 )
 
-PROMPT = """Sample evidence:
-{evidence}
+PROMPT = """Per-sample evidence (this BioSample's own annotation):
+{sample_evidence}
+
+Project-level context (shared by every sample in the project):
+{project_evidence}
+
+{sample_precedence}
 
 Allowed germplasm categories:
 {categories}
@@ -145,6 +150,29 @@ def _hybrid_values(values):
     return [line.partition(":")[2].strip() for line in values if _is_hybrid_line(line)]
 
 
+def _hybrid_vote(values, hybrid_values, inbred_values):
+    """Read the structured ``is_hybrid`` attribute: 'hybrid', 'inbred' or None."""
+    hybrid = {value.strip().lower() for value in hybrid_values or []}
+    inbred = {value.strip().lower() for value in inbred_values or []}
+    votes = set()
+    for value in _hybrid_values(values):
+        lowered = value.strip().lower()
+        if lowered in hybrid:
+            votes.add("hybrid")
+        elif lowered in inbred:
+            votes.add("inbred")
+    return votes.pop() if len(votes) == 1 else None
+
+
+def _hybrid_evidence(values, accepted):
+    """Quote the is_hybrid line that carried the vote."""
+    allowed = {value.strip().lower() for value in accepted}
+    for value in _hybrid_values(values):
+        if value.strip().lower() in allowed:
+            return f"is_hybrid: {value.strip()}"
+    return ""
+
+
 def _hybrid_guard(category, values, inbred_values, accessions, patterns, rule_keys):
     """Veto a hybrid call when the record states the line is inbred.
 
@@ -176,9 +204,22 @@ def _hybrid_guard(category, values, inbred_values, accessions, patterns, rule_ke
     return "natural_accession", note, "rules_override"
 
 
-def _rule_label(values, accessions, patterns, rule_keys):
+def _rule_label(
+    values, accessions, patterns, rule_keys, hybrid_values=None, inbred_values=None
+):
+    vote = _hybrid_vote(values, hybrid_values, inbred_values)
+    inbred_evidence = _hybrid_evidence(values, inbred_values or [])
+
+    # A structured checklist value is near-certain evidence and decides before
+    # the model is asked: the study title made the model call Inbred samples
+    # hybrids in PRJEB51241.
+    if vote == "hybrid":
+        return "hybrid", _hybrid_evidence(values, hybrid_values or []), "rules"
+
     structured = _structured_values(values, rule_keys)
     if not structured:
+        if vote == "inbred":
+            return "natural_accession", inbred_evidence, "rules"
         return None, "", ""
 
     text = "\n".join(structured)
@@ -189,6 +230,10 @@ def _rule_label(values, accessions, patterns, rule_keys):
         category = next((name for name in PRIORITY if name in hits), None)
         if category is None:
             category = sorted(hits)[0]
+        if category == "hybrid" and vote == "inbred":
+            # Genotype text says hybrid while the checklist says inbred: the
+            # two structured signals disagree, so let the model arbitrate.
+            return None, "", ""
         evidence = "; ".join(
             f"{name}: {', '.join(_matched_lines(structured, expressions)[:3])}"
             for name, expressions in hits.items()
@@ -201,12 +246,19 @@ def _rule_label(values, accessions, patterns, rule_keys):
             "matched natural accession: " + ", ".join(natural[:5]),
             "rules",
         )
+    if vote == "inbred":
+        return "natural_accession", inbred_evidence, "rules"
     return None, "", ""
 
 
-def _state(values, summary):
+def _state(values, summary, sample, project):
     conditions = summary.get("conditions") if summary.get("has_paper") else None
-    return {"evidence": values, "paper_conditions": conditions}
+    return {
+        "evidence": values,
+        "sample_evidence": sample or ["(none)"],
+        "project_context": project or ["(none)"],
+        "paper_conditions": conditions,
+    }
 
 
 def _decision(server_url, api_key, model, state, categories, descriptions):
@@ -218,7 +270,10 @@ def _decision(server_url, api_key, model, state, categories, descriptions):
             "type": "choice",
             "instructions": (
                 "Which germplasm category best describes this RNA-seq sample? "
-                "Use unknown when the evidence does not establish the genotype."
+                "Use unknown when the evidence does not establish the genotype. "
+                "Weigh the sample's own annotation above project-level text "
+                "shared by all samples (a project titled 'hybrids' can still "
+                "contain inbred lines)."
             ),
             "criteria": criteria,
         }
@@ -231,12 +286,16 @@ def _decision(server_url, api_key, model, state, categories, descriptions):
     return category, answer.get("confidence"), answer.get("probabilities")
 
 
-def _chat(server_url, api_key, model, model_params, values, categories, descriptions):
+def _chat(
+    server_url, api_key, model, model_params, sample, project, categories, descriptions
+):
     allowed = "\n".join(
         f"- {category}: {descriptions.get(category, '')}" for category in categories
     )
     prompt = PROMPT.format(
-        evidence="\n".join(values) if values else "(none)",
+        sample_evidence="\n".join(sample) if sample else "(none)",
+        project_evidence="\n".join(project) if project else "(none)",
+        sample_precedence=SAMPLE_PRECEDENCE,
         categories=allowed,
     )
     messages = [
@@ -278,7 +337,10 @@ def _label_one(samn, runs, inputs, params):
 
     categories = list(params["categories"])
     descriptions = dict(params["descriptions"])
-    values = evidence_lines(biosample, sra, summary, list(params["attribute_keys"]))
+    sample, project = split_evidence(
+        biosample, sra, summary, list(params["attribute_keys"])
+    )
+    values = sample + project
 
     category = None
     confidence = None
@@ -292,6 +354,8 @@ def _label_one(samn, runs, inputs, params):
             list(params["natural_accessions"]),
             dict(params["patterns"]),
             list(params["rule_attribute_keys"]),
+            list(params.get("hybrid_values") or []),
+            list(params.get("inbred_values") or []),
         )
 
         if category is None:
@@ -302,7 +366,7 @@ def _label_one(samn, runs, inputs, params):
                         params["server_url"],
                         params["api_key"],
                         params["decision_model"],
-                        _state(values, summary),
+                        _state(values, summary, sample, project),
                         categories,
                         descriptions,
                     )
@@ -321,7 +385,8 @@ def _label_one(samn, runs, inputs, params):
                     params["api_key"],
                     params["model"],
                     params["model_params"],
-                    values,
+                    sample,
+                    project,
                     categories,
                     descriptions,
                 )

@@ -248,6 +248,12 @@ properties:
           type: string
         default:
           - inbred
+      hybrid_values:
+        type: array
+        items:
+          type: string
+        default:
+          - hybrid
       natural_accessions:
         type: array
         items:

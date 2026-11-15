@@ -98,6 +98,61 @@ def merge_sra(records):
     return merged
 
 
+# Shared prompt wording for every labeler: the model must weigh this sample's
+# own annotation above text that is shared by all samples in the project. The
+# germplasm layer got this wrong in the other direction — a project titled
+# "... A. thaliana hybrids" made the model label 382 Inbred samples as hybrids.
+SAMPLE_PRECEDENCE = (
+    "Per-sample evidence describes this BioSample and outranks project-level "
+    "context (study title, study abstract, paper conditions), which is shared "
+    "by every sample in the project. Project-level text may only interpret or "
+    "confirm what the sample itself reports; never let it override a "
+    "sample-specific annotation that states otherwise."
+)
+
+
+def _dedupe(lines):
+    seen = set()
+    unique = []
+    for line in lines:
+        key = line.strip().lower()
+        if key and key not in seen:
+            seen.add(key)
+            unique.append(line)
+    return unique
+
+
+def split_evidence(biosample, sra, summary, attribute_keys=None, max_abstract=800):
+    """Return ``(per-sample lines, project-level lines)`` for prompt grounding.
+
+    Experiment title, library name, sample name, and sample attributes belong
+    to this sample; study title, study abstract, and paper conditions are
+    shared by every sample of the BioProject. Labelers show them as separate
+    blocks and state which one wins.
+    """
+    sample = attribute_lines(biosample.get("attributes", {}), attribute_keys)
+    organism = biosample.get("organism")
+    if organism:
+        sample.append(f"organism: {organism}")
+    for key in ("experiment_title", "library_name", "sample_name"):
+        value = sra.get(key)
+        if value:
+            sample.append(f"{key}: {value}")
+    for name, value in sorted((sra.get("sample_attributes") or {}).items()):
+        if value:
+            sample.append(f"sra_{name}: {value}")
+
+    project = []
+    study_title = sra.get("study_title")
+    if study_title:
+        project.append(f"study_title: {study_title}")
+    abstract = sra.get("study_abstract")
+    if abstract:
+        project.append(f"study_abstract: {abstract[:max_abstract]}")
+    project.extend(paper_lines(summary))
+    return _dedupe(sample), _dedupe(project)
+
+
 def exposure_evidence(biosample, sra, summary, max_abstract=800):
     """Split exposure evidence into per-sample and project-level blocks.
 

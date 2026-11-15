@@ -50,6 +50,7 @@ rule label_germplasm:
         rule_attribute_keys=config["germplasm"]["rule_attribute_keys"],
         natural_accessions=config["germplasm"]["natural_accessions"],
         inbred_values=config["germplasm"]["inbred_values"],
+        hybrid_values=config["germplasm"]["hybrid_values"],
         patterns=config["germplasm"]["patterns"],
         descriptions=config["germplasm"]["descriptions"],
     script:

@@ -6,7 +6,7 @@ from pathlib import Path
 
 from chunk_runner import run_chunk
 
-from evidence import evidence_lines, merge_sra
+from evidence import SAMPLE_PRECEDENCE, merge_sra, split_evidence
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -17,8 +17,16 @@ SYSTEM = (
     "Plant Experimental Conditions Ontology (PECO). Return only a JSON object."
 )
 
-PROMPT = """Sample and paper evidence:
-{evidence}
+PROMPT = """Per-sample evidence (this BioSample's own annotation):
+{sample_evidence}
+
+Project-level context (shared by every sample in the project):
+{project_evidence}
+
+{sample_precedence}
+Where the plants were grown is usually reported only in project-level text
+(Methods, study title); use it when the sample itself is silent. When both
+speak, the sample-specific annotation wins.
 
 Allowed study conditions:
 {conditions}
@@ -51,7 +59,9 @@ def _decision(server_url, api_key, model, state, criteria):
             "type": "choice",
             "instructions": (
                 "Where were the plants grown? Choose the PECO plant study "
-                "condition that best matches the evidence, or OTHER."
+                "condition that best matches the evidence, or OTHER. Project-"
+                "level Methods text is legitimate evidence here, but a "
+                "sample-specific annotation outranks it when they disagree."
             ),
             "criteria": criteria,
         }
@@ -64,10 +74,12 @@ def _decision(server_url, api_key, model, state, criteria):
     return category, answer.get("confidence"), answer.get("probabilities")
 
 
-def _chat(server_url, api_key, model, model_params, values, criteria):
+def _chat(server_url, api_key, model, model_params, sample, project, criteria):
     allowed = "\n".join(f"- {label}: {text}" for label, text in criteria.items())
     prompt = PROMPT.format(
-        evidence="\n".join(values) if values else "(none)",
+        sample_evidence="\n".join(sample) if sample else "(none)",
+        project_evidence="\n".join(project) if project else "(none)",
+        sample_precedence=SAMPLE_PRECEDENCE,
         conditions=allowed,
     )
     messages = [
@@ -124,7 +136,8 @@ def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label)
     with open(inputs["summary"]) as handle:
         summary = json.load(handle)
 
-    values = evidence_lines(biosample, sra, summary)
+    sample, project = split_evidence(biosample, sra, summary)
+    values = sample + project
 
     category = None
     confidence = None
@@ -150,7 +163,11 @@ def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label)
                     params["server_url"],
                     params["api_key"],
                     params["decision_model"],
-                    {"evidence": values},
+                    {
+                        "evidence": values,
+                        "sample_evidence": sample or ["(none)"],
+                        "project_context": project or ["(none)"],
+                    },
                     criteria,
                 )
                 source = "decision"
@@ -168,7 +185,8 @@ def _label_one(samn, runs, inputs, params, study_terms, criteria, term_by_label)
                 params["api_key"],
                 params["model"],
                 params["model_params"],
-                values,
+                sample,
+                project,
                 criteria,
             )
             source = "chat_fallback" if fell_back else "chat"

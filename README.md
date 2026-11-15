@@ -166,10 +166,18 @@ library types.
 - `lncrna`, `circrna`, `other_rna`, `not_rna`, `unknown`.
 
 A structured `is_hybrid` BioSample attribute (ENA checklist, values
-Hybrid/Inbred/NTC) vetoes a `hybrid` germplasm call: a project titled
-"... A. thaliana hybrids" had 382 Inbred samples labelled hybrid at confidence
-0.63, above the review threshold. The rules layer re-checks the remaining
-structured fields, so a mutant/transgenic signal still wins.
+Hybrid/Inbred/NTC) is decided in the rules layer: `Hybrid` yields `hybrid`,
+and `Inbred` yields `natural_accession` unless a mutant/transgenic pattern
+matches. A project titled "... A. thaliana hybrids" had 382 Inbred samples
+labelled hybrid by the model at confidence 0.63, above the review threshold, so
+the checklist value is no longer left to the model. Conflicts between the
+checklist and genotype text defer to the model, and a post-model guard still
+vetoes a hybrid call when the record says inbred.
+
+Every labeler splits evidence into a per-sample block (BioSample attributes,
+experiment/library/sample fields) and a project-level block (study title,
+abstract, paper conditions), and the prompt states that per-sample evidence
+outranks project-level text.
 
 By default, `mrna` and `ribo_depleted_total_rna` continue to labeling. Change
 `rna_type.accepted_rna_types` in `config/config.yaml` to alter that policy.

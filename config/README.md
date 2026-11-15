@@ -62,22 +62,12 @@ Path to the sample sheet. Default: `config/samples.tsv`.
 | `growth_system_root` | `PECO:0007147` | Root of growth-medium exposure terms used for `growth_system_*` columns. |
 | `growth_system_extra_roots` | `[PECO:0007128, PECO:0007175]` | Additional exposure subtrees (photoperiod/day length, temperature regime) that also populate `growth_system_*`; the terms remain exposure annotations too. |
 
-## `paper`
-
-| Key | Default | Description |
-|---|---|---|
-| `max_chars` | `12000` | Maximum excerpt length sent to the paper-summary model. |
-
 ## `quant`
 
 Gene-expression subworkflow (`snakemake quant_all`).
 
 | Key | Default | Description |
 |---|---|---|
-| `paper.discover_by_accession` | `true` | Also search Europe PMC for the BioProject accession when NCBI has no linked publication. |
-| `paper.max_pmids` | `3` | Candidate papers tried per project; the best text tier wins. |
-| `paper.study_setting_map` | map | Maps a quoted paper setting to a PECO study-condition label. |
-| `metadata.growth_keys` | list | Attribute keys counted as growth-condition evidence in `metadata_missing`. |
 | `targets` | `results/quant/targets.tsv` | Target list produced by `python workflow/scripts/quant_prepare.py`. |
 | `reference_release` | `60` | Ensembl Plants release recorded with the reference URLs. |
 | `cdna_url` / `genome_url` / `gtf_url` | Ensembl Plants TAIR10 r60 | Reference FASTA and annotation; the GTF must match the cDNA release. |
@@ -103,8 +93,11 @@ Gene-expression subworkflow (`snakemake quant_all`).
 |---|---|
 | `categories` | Allowed germplasm categories. |
 | `attribute_keys` | BioSample attribute names used as evidence. |
+| `rule_attribute_keys` | Structured fields the rules layer may read (study titles and library names are model evidence only). |
 | `natural_accessions` | Accession names that count as natural accessions. |
 | `patterns` | Regex lists keyed by germplasm category. |
+| `inbred_values` | `is_hybrid` values that veto a hybrid call in the rules layer. |
+| `hybrid_values` | `is_hybrid` values that decide `hybrid` in the rules layer. |
 | `descriptions` | Category descriptions sent to the decision model. |
 
 The default categories are `natural_accession`, `mutant`, `transgenic`,
@@ -139,11 +132,20 @@ SRA attributes. It does not use the paper. Other RNA types are written to
 
 | Key | Default | Description |
 |---|---|---|
-| `max_chars` | `12000` | Character budget for the paper excerpt sent to the summary model. |
+| `max_chars` | `20000` | Character budget for the paper excerpt sent to the summary model. Methods are excerpted first, because that is where growth conditions live. |
+| `discover_by_accession` | `true` | Also search Europe PMC for the BioProject accession when NCBI has no linked publication. |
+| `max_pmids` | `3` | Candidate papers tried per project; the best text tier (`fulltext` > `abstract`) wins. |
+| `study_setting_map` | map | Maps a quoted paper setting (`growth_chamber`, `greenhouse`, `field`, `laboratory`, `in_vitro`) to a PECO study-condition label. |
 
-The paper summary also extracts `day_length_hours` and `growth_temperature_c`
-when the paper reports them; `null` means not reported. These values are shown
-in the review app and carried into `labels.tsv`.
+The paper summary also extracts `day_length_hours`, `growth_temperature_c`, and
+`study_setting` with a required verbatim quote; `null` means not reported.
+These values are shown in the review app and carried into `labels.tsv`.
+
+## `metadata`
+
+| Key | Default | Description |
+|---|---|---|
+| `growth_keys` | list | Attribute keys counted as growth-condition evidence in `metadata_missing` and `metadata_tier`. |
 
 ## `athrdb`
 

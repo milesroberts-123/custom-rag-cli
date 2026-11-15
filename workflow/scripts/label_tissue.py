@@ -7,7 +7,7 @@ from pathlib import Path
 
 from chunk_runner import run_chunk
 
-from evidence import evidence_lines, merge_sra
+from evidence import SAMPLE_PRECEDENCE, merge_sra, split_evidence
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -17,11 +17,13 @@ SYSTEM = (
     "You assign plant tissue categories to RNA-seq samples. Return only a JSON object."
 )
 
-PROMPT = """Sample evidence (BioSample, SRA metadata, paper):
-{attributes}
+PROMPT = """Per-sample evidence (this BioSample's own annotation):
+{sample_evidence}
 
-Paper conditions:
-{paper}
+Project-level context (shared by every sample in the project):
+{project_evidence}
+
+{sample_precedence}
 
 Allowed tissue categories:
 {categories}
@@ -85,10 +87,12 @@ def _rules_category(values, categories, keywords, po_terms=None, rule_keys=None)
     return hits[0] if len(hits) == 1 else None
 
 
-def _state(biosample, summary, values):
+def _state(biosample, summary, values, sample, project):
     conditions = summary.get("conditions") if summary.get("has_paper") else None
     return {
         "attributes": values or ["(none)"],
+        "sample_evidence": sample or ["(none)"],
+        "project_context": project or ["(none)"],
         "organism": biosample.get("organism"),
         "paper_conditions": conditions,
     }
@@ -102,7 +106,8 @@ def _decision(server_url, api_key, model, state, categories, other_description):
             "type": "choice",
             "instructions": (
                 "Which tissue category best describes this RNA-seq sample? "
-                "Choose OTHER when no listed category fits."
+                "Choose OTHER when no listed category fits. Weigh the sample's "
+                "own annotation above project-level text shared by all samples."
             ),
             "criteria": criteria,
         }
@@ -120,21 +125,17 @@ def _chat(
     api_key,
     model,
     model_params,
-    values,
-    summary,
+    sample,
+    project,
     categories,
     other_description,
 ):
-    paper = (
-        json.dumps(summary.get("conditions") or {}, sort_keys=True)
-        if summary.get("has_paper")
-        else "(no paper)"
-    )
     allowed = "\n".join(f"- {category}" for category in categories)
     allowed += f"\n- {OTHER}: {other_description}"
     prompt = PROMPT.format(
-        attributes="\n".join(values) if values else "(none)",
-        paper=paper,
+        sample_evidence="\n".join(sample) if sample else "(none)",
+        project_evidence="\n".join(project) if project else "(none)",
+        sample_precedence=SAMPLE_PRECEDENCE,
         categories=allowed,
     )
     messages = [
@@ -176,7 +177,10 @@ def _label_one(samn, runs, inputs, params):
 
     categories = list(params["categories"])
     keywords = dict(params["keywords"])
-    values = evidence_lines(biosample, sra, summary, list(params["attribute_keys"]))
+    sample, project = split_evidence(
+        biosample, sra, summary, list(params["attribute_keys"])
+    )
+    values = sample + project
 
     confidence = None
     probabilities = None
@@ -204,7 +208,7 @@ def _label_one(samn, runs, inputs, params):
                     params["server_url"],
                     params["api_key"],
                     params["decision_model"],
-                    _state(biosample, summary, values),
+                    _state(biosample, summary, values, sample, project),
                     categories,
                     params["other_description"],
                 )
@@ -222,8 +226,8 @@ def _label_one(samn, runs, inputs, params):
                 params["api_key"],
                 params["model"],
                 params["model_params"],
-                values,
-                summary,
+                sample,
+                project,
                 categories,
                 params["other_description"],
             )

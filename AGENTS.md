@@ -174,10 +174,21 @@ lint/format/test checks in CI.
   RT-PCR/unspecified selections abstained to the decision model, which answered
   `unknown` and excluded 9,870 of 11,136 runs. Do not let this override
   small-RNA, ribo-depleted, total-RNA, or non-RNA calls.
-- `germplasm.inbred_values` pairs with the ENA `is_hybrid` attribute:
-  `is_hybrid: Inbred` vetoes a `hybrid` call (source `rules_override`), because
-  the model followed a project title instead. Re-run the germplasm rules after
-  changing those values.
+- Labeling pattern, all five layers: rules decide from structured fields; the
+  model handles only what the rules did not capture; evidence is split into
+  per-sample and project-level blocks (`evidence.split_evidence`) and every
+  prompt states that per-sample evidence outranks project-level text
+  (`evidence.SAMPLE_PRECEDENCE`). Keep the split when adding a labeler — a
+  shared study title must never override a sample attribute. Study condition is
+  the exception where project text is legitimate evidence, but it still loses
+  to a contradicting sample annotation.
+- `germplasm.hybrid_values` / `inbred_values` read the ENA `is_hybrid`
+  attribute in the rules layer: `Hybrid` yields `hybrid`, `Inbred` yields
+  `natural_accession` unless a mutant/transgenic pattern matches. Do not add
+  `is_hybrid` to `rule_attribute_keys` — the field name contains "hybrid" and
+  would match the hybrid pattern for inbred records. `_hybrid_guard` remains
+  the post-model backstop, and conflicting signals (is_hybrid=Inbred with a
+  hybrid genotype) defer to the model.
 - `mixed_runs` computes the `mixed_run_context` set once per window
   (`results/mixed/{window}.json`); `sample_rows` reads it. Do not put the
   per-window SRA scan back inside each chunk job — it re-read thousands of

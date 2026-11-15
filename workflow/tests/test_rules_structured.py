@@ -284,3 +284,52 @@ def test_guard_leaves_other_labels_alone():
     )
     assert category == "mutant"
     assert source is None
+
+
+# --- germplasm: is_hybrid rules layer ----------------------------------------
+
+
+def _hybrid_rule(values, patterns=None):
+    return germ._rule_label(
+        values,
+        GERM_ACCESSIONS,
+        patterns or GERM_PATTERNS,
+        GERM_RULE_KEYS,
+        ["hybrid"],
+        INBRED,
+    )
+
+
+def test_is_hybrid_hybrid_is_decided_by_rules():
+    category, evidence, source = _hybrid_rule(["is_hybrid: Hybrid", "genotype: p6967"])
+    assert category == "hybrid"
+    assert source == "rules"
+    assert "is_hybrid: Hybrid" in evidence
+
+
+def test_is_hybrid_inbred_is_not_hybrid():
+    category, evidence, source = _hybrid_rule(["is_hybrid: Inbred", "genotype: p6967"])
+    assert category == "natural_accession"
+    assert source == "rules"
+    assert "is_hybrid: Inbred" in evidence
+
+
+def test_is_hybrid_inbred_still_yields_a_mutant():
+    patterns = {"mutant": [r"\bSALK_\d+", r"\bT-DNA\b"]}
+    category, _, _ = _hybrid_rule(
+        ["is_hybrid: Inbred", "genotype: SALK_123456 (T-DNA insertion)"], patterns
+    )
+    assert category == "mutant"
+
+
+def test_is_hybrid_inbred_defers_when_genotype_says_hybrid():
+    # Two structured signals disagree; the model arbitrates with both visible.
+    patterns = {"hybrid": [r"\bhybrid\b", r"\bF1\b", r"\bcross\b"]}
+    category, _, _ = _hybrid_rule(
+        ["is_hybrid: Inbred", "genotype: Col-0 x Ler F1"], patterns
+    )
+    assert category is None
+
+
+def test_is_hybrid_ntc_abstains():
+    assert _hybrid_rule(["is_hybrid: NTC"])[0] is None

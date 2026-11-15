@@ -215,6 +215,8 @@ germplasm:
     - homozygous
     - true-breeding
     - true breeding
+  hybrid_values:
+    - hybrid
   natural_accessions:
     - Col-0
     - Col0
