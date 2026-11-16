@@ -3,6 +3,8 @@ rule summarize_paper:
         paper="results/metadata/paper/{prjna}.json",
     output:
         "results/summary/{prjna}.json",
+    benchmark:
+        benchmark("summarize_paper", "{prjna}")
     conda:
         "../envs/llm.yaml"
     params:

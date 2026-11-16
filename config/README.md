@@ -37,7 +37,14 @@ sample is still labeled from metadata only.
 
 ## `samples`
 
-Path to the sample sheet. Default: `config/samples.tsv`.
+Path to the sample sheet. Default: `config/samples.tsv`. Batching keys
+`batch_size` / `batch_index` are documented in the main README.
+
+## `benchmark_dir`
+
+Directory for per-job benchmark TSVs. Default: `results/benchmarks`. Override it
+with `--config benchmark_dir=...` to keep separate filesystem experiments
+(Lustre vs VAST) apart.
 
 ## `ncbi`
 

@@ -2,6 +2,10 @@ $schema: "https://json-schema.org/draft/2020-12/schema"
 description: workflow configuration for the SRA PECO and germplasm labeling pipeline
 type: object
 properties:
+  benchmark_dir:
+    type: string
+    default: results/benchmarks
+    description: Directory for per-job benchmark TSVs
   samples:
     type: string
     description: path to the SRA run sample sheet

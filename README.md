@@ -421,6 +421,32 @@ Outputs:
 | `results/quant/quant_qc.tsv` | per sample: mode, layout, n_runs, mapped %, inferred library type, medTIN, per-run fastp QC |
 | `results/quant/skipped.tsv` | runs excluded from quantification and why |
 
+## Benchmarks
+
+Every rule declares a `benchmark:` path under `benchmark_dir` (default
+`results/benchmarks`), so each job writes one TSV with wall time, max RSS, and
+`io_in` / `io_out` bytes. Chunked rules include the window and chunk in the
+file name; `aggregate` and the fetch rules write one file per rule.
+
+These columns are what a filesystem comparison needs: `s` is the job's wall
+time, and `io_in` / `io_out` are the bytes the job actually read and wrote.
+`--benchmark-extended` adds job id, rule name, wildcards, and threads.
+
+To compare Lustre against VAST, run the same window on each clone and keep the
+benchmarks apart:
+
+```bash
+# Lustre clone
+snakemake --cores 32 --config samples=config/samples_all.tsv \
+  batch_size=5000 batch_index=6
+# VAST clone (same commit, same window)
+snakemake --cores 32 --config samples=config/samples_all.tsv \
+  batch_size=5000 batch_index=6 benchmark_dir=results/benchmarks-vast
+```
+
+Then compare per-rule medians of `s`, `io_in`, and `io_out`. Benchmark files are
+not inputs to any rule, so changing `benchmark_dir` never triggers a rerun.
+
 ## Human review
 
 The Streamlit app in `review_app/` groups runs by BioProject, shows the linked

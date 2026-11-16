@@ -182,6 +182,8 @@ def _trim_and_quant(quant_dir, runs, index, tx2gene, threads, fld_mean, fld_sd):
 rule fetch_cdna:
     output:
         "results/quant/reference/cdna.fa.gz",
+    benchmark:
+        benchmark("fetch_cdna")
     conda:
         "../envs/quant_reads.yaml"
     params:
@@ -194,6 +196,8 @@ rule fetch_cdna:
 rule fetch_genome:
     output:
         "results/quant/reference/genome.fa.gz",
+    benchmark:
+        benchmark("fetch_genome")
     conda:
         "../envs/quant_reads.yaml"
     params:
@@ -206,6 +210,8 @@ rule fetch_genome:
 rule fetch_gtf:
     output:
         "results/quant/reference/annotation.gtf.gz",
+    benchmark:
+        benchmark("fetch_gtf")
     conda:
         "../envs/quant_reads.yaml"
     params:
@@ -222,6 +228,8 @@ rule build_gentrome:
     output:
         "results/quant/reference/gentrome.fa",
         "results/quant/reference/decoys.txt",
+    benchmark:
+        benchmark("build_gentrome")
     conda:
         "../envs/quant_py.yaml"
     script:
@@ -234,6 +242,8 @@ rule salmon_index:
         "results/quant/reference/decoys.txt",
     output:
         directory("results/quant/index"),
+    benchmark:
+        benchmark("salmon_index")
     conda:
         "../envs/quant_salmon.yaml"
     params:
@@ -248,6 +258,8 @@ rule tx2gene:
         "results/quant/reference/annotation.gtf.gz",
     output:
         "results/quant/tx2gene.tsv",
+    benchmark:
+        benchmark("tx2gene")
     conda:
         "../envs/quant_py.yaml"
     script:
@@ -259,6 +271,8 @@ rule fetch_fastq_single:
         metadata="results/metadata/sra/{run}.json",
     output:
         temp("results/quant/raw/{run}.se.fq.gz"),
+    benchmark:
+        benchmark("fetch_fastq_single", "{run}")
     conda:
         "../envs/quant_reads.yaml"
     resources:
@@ -280,6 +294,8 @@ rule fetch_fastq_paired:
     output:
         temp("results/quant/raw/{run}_R1.fq.gz"),
         temp("results/quant/raw/{run}_R2.fq.gz"),
+    benchmark:
+        benchmark("fetch_fastq_paired", "{run}")
     conda:
         "../envs/quant_reads.yaml"
     resources:
@@ -302,6 +318,8 @@ rule quant_sample:
         tx2gene="results/quant/tx2gene.tsv",
     output:
         directory("results/quant/salmon/{samn}"),
+    benchmark:
+        benchmark("quant_sample", "{samn}")
     conda:
         "../envs/quant_salmon.yaml"
     params:
@@ -328,6 +346,8 @@ rule quant_sample_run:
         tx2gene="results/quant/tx2gene.tsv",
     output:
         directory("results/quant/salmon_run/{run}"),
+    benchmark:
+        benchmark("quant_sample_run", "{run}")
     conda:
         "../envs/quant_salmon.yaml"
     params:
@@ -354,6 +374,8 @@ rule compute_tin:
     output:
         "results/quant/tin/{samn}.tsv",
         "results/quant/tin/{samn}.json",
+    benchmark:
+        benchmark("compute_tin", "{samn}")
     conda:
         "../envs/quant_py.yaml"
     params:
@@ -369,6 +391,8 @@ rule compute_tin_run:
     output:
         "results/quant/tin_run/{run}.tsv",
         "results/quant/tin_run/{run}.json",
+    benchmark:
+        benchmark("compute_tin_run", "{run}")
     conda:
         "../envs/quant_py.yaml"
     params:
@@ -393,6 +417,8 @@ rule merge_quant:
         counts="results/quant/gene_counts.tsv",
         tpm="results/quant/gene_tpm.tsv",
         qc="results/quant/quant_qc.tsv",
+    benchmark:
+        benchmark("merge_quant")
     conda:
         "../envs/quant_py.yaml"
     script:

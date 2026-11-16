@@ -31,6 +31,17 @@ def summary_file(wildcards):
     return f"results/summary/{prjna_of(wildcards.run)}.json"
 
 
+def benchmark(name, suffix=""):
+    """Benchmark path for a rule, rooted at ``benchmark_dir``.
+
+    Benchmarks record wall time, max RSS, and io_in/io_out per job, which is
+    what a filesystem comparison needs. ``suffix`` may contain rule wildcards
+    (for example ``"{chunk}"``) and is passed through verbatim.
+    """
+    base = f"{config.get('benchmark_dir', 'results/benchmarks')}/{name}"
+    return f"{base}/{suffix}.tsv" if suffix else f"{base}.tsv"
+
+
 def llm_rule_params(model_key, decision=False):
     """Shared Ollama and model params for a labeling rule."""
     params = {

@@ -1,6 +1,8 @@
 rule fetch_peco:
     output:
         "results/peco/peco.owl",
+    benchmark:
+        benchmark("fetch_peco")
     conda:
         "../envs/ncbi.yaml"
     params:
@@ -14,6 +16,8 @@ rule build_peco_index:
         "results/peco/peco.owl",
     output:
         directory("results/peco/peco_index"),
+    benchmark:
+        benchmark("build_peco_index")
     conda:
         "../envs/peco.yaml"
     params:

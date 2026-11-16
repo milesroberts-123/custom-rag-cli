@@ -4,6 +4,8 @@ rule classify_rna_type:
         sra=chunk_sra,
     output:
         "results/chunks/rna_type/{chunk}.done",
+    benchmark:
+        benchmark("classify_rna_type", f"{WINDOW_INDEX}-{{chunk}}")
     conda:
         "../envs/llm.yaml"
     params:

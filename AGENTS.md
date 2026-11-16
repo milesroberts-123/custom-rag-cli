@@ -202,6 +202,11 @@ lint/format/test checks in CI.
 - The ENA BioSample fallback fetches `ncbi.ena_batch_size` accessions per
   request and splits a batch only on failure; it was the serial gate on every
   window (~38 min at one request per accession).
+- Every rule declares `benchmark:` via `benchmark("rule_name", "wildcards")`
+  from `common.smk`, rooted at `benchmark_dir`. Benchmarks record wall time,
+  max RSS, and `io_in`/`io_out` and exist so Lustre and VAST runs can be
+  compared; keep the directive when adding or editing a rule. Chunked rules use
+  `f"{WINDOW_INDEX}-{{chunk}}"` so windows do not overwrite each other.
 - Review is gated on model uncertainty only: confidence thresholds plus the
   AthRDB cross-check and `mixed_run_context`. `OTHER`/`unknown` labels are
   results, not triggers — flagging them enqueued 94% of a window. Do not

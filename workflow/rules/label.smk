@@ -13,6 +13,8 @@ rule label_tissue:
         summary=chunk_summaries,
     output:
         "results/chunks/tissue/{chunk}.done",
+    benchmark:
+        benchmark("label_tissue", f"{WINDOW_INDEX}-{{chunk}}")
     conda:
         "../envs/llm.yaml"
     params:
@@ -38,6 +40,8 @@ rule label_germplasm:
         summary=chunk_summaries,
     output:
         "results/chunks/germplasm/{chunk}.done",
+    benchmark:
+        benchmark("label_germplasm", f"{WINDOW_INDEX}-{{chunk}}")
     conda:
         "../envs/llm.yaml"
     params:
@@ -66,6 +70,8 @@ rule label_exposure:
         index="results/peco/peco_index",
     output:
         "results/chunks/exposure/{echunk}.done",
+    benchmark:
+        benchmark("label_exposure", f"{WINDOW_INDEX}-{{echunk}}")
     conda:
         "../envs/peco_llm.yaml"
     params:
@@ -88,6 +94,8 @@ rule label_study_condition:
         index="results/peco/peco_index",
     output:
         "results/chunks/study_condition/{chunk}.done",
+    benchmark:
+        benchmark("label_study_condition", f"{WINDOW_INDEX}-{{chunk}}")
     conda:
         "../envs/llm.yaml"
     params:
@@ -106,6 +114,8 @@ rule mixed_runs:
         sra=expand("results/metadata/sra/{run}.json", run=RUNS),
     output:
         "results/mixed/{window}.json",
+    benchmark:
+        benchmark("mixed_runs", "{window}")
     conda:
         "../envs/aggregate.yaml"
     params:
@@ -127,6 +137,8 @@ rule sample_rows:
         mixed="results/mixed/{window}.json",
     output:
         "results/rows/{window}-{chunk}.tsv",
+    benchmark:
+        benchmark("sample_rows", "{window}-{chunk}")
     conda:
         "../envs/aggregate.yaml"
     params:
@@ -157,6 +169,8 @@ rule aggregate:
         ),
         excluded="results/labels.excluded.tsv",
         coverage="results/metadata_coverage.tsv",
+    benchmark:
+        benchmark("aggregate")
     conda:
         "../envs/aggregate.yaml"
     params:

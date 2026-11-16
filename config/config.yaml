@@ -1,4 +1,7 @@
 samples: config/samples.tsv
+# Per-job benchmark TSVs (wall time, max RSS, io_in/io_out). Override with
+# `--config benchmark_dir=...` to keep filesystem experiments apart.
+benchmark_dir: results/benchmarks
 
 # Optional window batching: process the sheet in non-overlapping, ordered
 # slices across invocations, e.g. --config batch_size=5000 batch_index=3.
