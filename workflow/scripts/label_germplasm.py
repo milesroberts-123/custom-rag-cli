@@ -7,7 +7,13 @@ from pathlib import Path
 
 from chunk_runner import run_chunk
 
-from evidence import SAMPLE_PRECEDENCE, merge_sra, split_evidence
+from evidence import (
+    SAMPLE_PRECEDENCE,
+    attribute_name,
+    is_project_level,
+    merge_sra,
+    split_evidence,
+)
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -88,11 +94,18 @@ def _natural_hits(text, accessions):
 
 
 def _natural_supported(values, accessions):
-    """Reject a natural-accession rule when the genotype field has other tokens."""
+    """Reject a natural-accession rule when the genotype field has other tokens.
+
+    Only per-sample genotype fields count: `paper_genotype` describes the
+    project, and a paper covering both mutant and wild-type lines made this
+    check reject valid Col-0 calls.
+    """
     allowed = {accession.lower() for accession in accessions}
     allowed |= NEUTRAL_GENOTYPE_TOKENS
     genotype_values = []
     for line in values:
+        if is_project_level(line):
+            continue
         name, _, value = line.partition(":")
         if any(key in name.lower() for key in GENOTYPE_KEYS):
             genotype_values.append(value.strip())
@@ -111,16 +124,18 @@ def _natural_supported(values, accessions):
 def _structured_values(values, rule_keys):
     """Keep only lines whose attribute name is a structured germplasm field.
 
-    Study abstracts, sample names, and submitter IDs stay available to the
-    model but must not drive the rules layer: an accession-shaped token in an
-    ENA submitter ID once labeled a transgenic library as a natural accession.
+    Study abstracts, sample names, submitter IDs, and paper-derived fields stay
+    available to the model but must not drive the rules layer: an
+    accession-shaped token in an ENA submitter ID once labeled a transgenic
+    library as a natural accession, and `paper_genotype` made 1,019 rule labels
+    paper-derived (259 of them contradicting the sample's own genotype).
     """
     keys = [key.lower().replace("_", " ") for key in rule_keys]
     selected = []
     for line in values:
-        name = line.partition(":")[0].strip().lower().replace("_", " ")
-        if name.startswith("sra "):
-            name = name[4:]
+        if is_project_level(line):
+            continue
+        name = attribute_name(line)
         if any(key in name for key in keys):
             selected.append(line)
     return selected

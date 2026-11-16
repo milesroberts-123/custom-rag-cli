@@ -7,7 +7,13 @@ from pathlib import Path
 
 from chunk_runner import run_chunk
 
-from evidence import SAMPLE_PRECEDENCE, merge_sra, split_evidence
+from evidence import (
+    SAMPLE_PRECEDENCE,
+    attribute_name,
+    is_project_level,
+    merge_sra,
+    split_evidence,
+)
 from llm import chat_json, systemone
 from skip import load_rna_type, write_skip
 
@@ -37,16 +43,18 @@ Return JSON: {{"category": "<allowed category or OTHER>", "evidence": "short rea
 def _structured_values(values, rule_keys):
     """Keep only lines whose attribute name is a structured tissue field.
 
-    Free text (study titles, abstracts) stays available to the model but must
-    not drive the rules layer: in the first window, 69% of rule labels came
-    from such text rather than a tissue/organ-part field.
+    Free text (study titles, abstracts, paper conditions) stays available to
+    the model but must not drive the rules layer: in the first window, 69% of
+    rule labels came from such text rather than a tissue/organ-part field.
+    `paper_tissue_sampled` normalizes to a name containing "tissue" and leaked
+    through a substring match, which made 1,259 rule labels paper-derived.
     """
     keys = [key.lower().replace("_", " ") for key in rule_keys]
     selected = []
     for line in values:
-        name = line.partition(":")[0].strip().lower().replace("_", " ")
-        if name.startswith("sra "):
-            name = name[4:]
+        if is_project_level(line):
+            continue
+        name = attribute_name(line)
         if any(key in name for key in keys):
             selected.append(line)
     return selected

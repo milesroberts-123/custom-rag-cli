@@ -10,6 +10,31 @@ PAPER_KEYS = (
 )
 
 
+# Evidence lines carry their origin in the attribute name: `sra_*` lines come
+# from the run's sample record, `paper_*` from the project's paper summary.
+# Rules layers may read only per-sample fields, so they need both the
+# normalized name and a way to tell the two apart.
+PROJECT_LEVEL_PREFIXES = ("paper ", "study ", "experiment ", "library ")
+
+
+def attribute_name(line):
+    """Return the normalized attribute name of an evidence line."""
+    name = line.partition(":")[0].strip().lower().replace("_", " ")
+    return name[4:] if name.startswith("sra ") else name
+
+
+def is_project_level(line_or_name):
+    """True for project-level evidence (paper, study title/abstract, run labels).
+
+    `paper_genotype` and `paper_tissue_sampled` normalize to names containing
+    "genotype" and "tissue", so a substring match alone let paper text decide
+    rule labels: 1,259 tissue and 1,019 germplasm samples were labelled from
+    paper lines, and 189 of them contradicted the sample's own genotype.
+    """
+    name = line_or_name if ":" not in line_or_name else attribute_name(line_or_name)
+    return name.startswith(PROJECT_LEVEL_PREFIXES)
+
+
 def attribute_lines(attributes, keys=None):
     """Return selected ``name: value`` lines from a BioSample attribute dict."""
     lines = []

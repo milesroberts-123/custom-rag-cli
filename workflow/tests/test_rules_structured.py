@@ -445,3 +445,91 @@ def test_opaque_genotype_still_abstains():
         values, GERM_ACCESSIONS, GERM_PATTERNS, GERM_RULE_KEYS
     )
     assert category is None
+
+
+# --- rules layers must ignore paper-level evidence ---------------------------
+# `paper_tissue_sampled` and `paper_genotype` normalize to names containing
+# "tissue"/"genotype", so a substring match let paper text decide rule labels:
+# 1,259 tissue and 1,019 germplasm samples, 189 of them contradicting the
+# sample's own genotype.
+
+from evidence import attribute_name, is_project_level  # noqa: E402
+
+
+def test_attribute_name_normalizes_sra_prefix():
+    assert attribute_name("sra_genotype: Col-0") == "genotype"
+    assert attribute_name("paper_tissue_sampled: leaf") == "paper tissue sampled"
+
+
+def test_is_project_level_detects_paper_and_study_lines():
+    for line in (
+        "paper_genotype: mom1 mutant",
+        "paper_tissue_sampled: leaf epidermis",
+        "study_title: something",
+        "study_abstract: text",
+        "experiment_title: sequencing",
+        "library_name: lib1",
+    ):
+        assert is_project_level(line), line
+    for line in ("genotype: Col-0", "sra_tissue: leaf", "organism part: root"):
+        assert not is_project_level(line), line
+
+
+def test_tissue_paper_line_alone_does_not_decide():
+    values = ["organism: Arabidopsis thaliana", "paper_tissue_sampled: leaf epidermis"]
+    assert (
+        tissue._rules_category(
+            values,
+            TISSUE_CATEGORIES_WITH_FLOWER,
+            TISSUE_KEYWORDS,
+            PO_EXTRA,
+            TISSUE_RULE_KEYS,
+        )
+        is None
+    )
+
+
+def test_tissue_sample_field_beats_paper_line():
+    values = ["tissue: root", "paper_tissue_sampled: leaf epidermis"]
+    assert (
+        tissue._rules_category(
+            values,
+            TISSUE_CATEGORIES_WITH_FLOWER,
+            TISSUE_KEYWORDS,
+            PO_EXTRA,
+            TISSUE_RULE_KEYS,
+        )
+        == "root"
+    )
+
+
+def test_germplasm_paper_genotype_alone_does_not_decide():
+    values = ["organism: Arabidopsis thaliana", "paper_genotype: mom1 mutant"]
+    category, _, _ = germ._rule_label(
+        values, GERM_ACCESSIONS, {"mutant": [r"\bmutant\b"]}, GERM_RULE_KEYS
+    )
+    assert category is None
+
+
+def test_germplasm_sample_genotype_beats_paper():
+    # The paper covers mutant and complemented lines; this sample is wild type.
+    values = [
+        "ecotype: Col-0",
+        "genotype: wild type genotype",
+        "paper_genotype: mom1 mutant; miniMOM1 complemented lines",
+    ]
+    category, _, source = germ._rule_label(
+        values, GERM_ACCESSIONS, {"mutant": [r"\bmutant\b"]}, GERM_RULE_KEYS
+    )
+    assert category == "natural_accession"
+    assert source == "rules"
+
+
+def test_natural_support_ignores_paper_genotype():
+    assert germ._natural_supported(
+        ["ecotype: Col-0", "paper_genotype: mom1 mutant"], GERM_ACCESSIONS
+    )
+    # A per-sample genotype with a foreign token still rejects the rule.
+    assert not germ._natural_supported(
+        ["ecotype: Col-0", "genotype: p6967"], GERM_ACCESSIONS
+    )

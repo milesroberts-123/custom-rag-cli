@@ -121,12 +121,15 @@ lint/format/test checks in CI.
   `TruncatedResponse`.
 - Tissue and germplasm rules read structured attribute fields only
   (`tissue.rule_attribute_keys` / `germplasm.rule_attribute_keys`); study
-  titles/abstracts, library names, and experiment titles are model evidence,
-  never rule evidence. ENA `plant structure` values carry Plant Ontology IDs
-  that map via `tissue.po_terms` (e.g. `PO:0025034` → leaf). Do not loosen
-  these back to full-text matching — it produced the false
-  natural-accession, false transgenic, and false cell-culture labels in the
-  first two windows.
+  titles/abstracts, library names, experiment titles, and every `paper_*` line
+  are model evidence, never rule evidence. Filter them with
+  `evidence.is_project_level` before name matching: `paper_tissue_sampled` and
+  `paper_genotype` normalize to names containing "tissue"/"genotype" and a
+  substring match let paper text decide 2,278 rule labels. ENA `plant
+  structure` values carry Plant Ontology IDs that map via `tissue.po_terms`
+  (e.g. `PO:0025034` → leaf). Do not loosen these back to full-text matching —
+  it produced the false natural-accession, false transgenic, and false
+  cell-culture labels in the first two windows.
 - The Ollama server job checks both `qwen3.8` and `tev1:4b` at startup; a
   missing decision model aborts the job instead of silently 404ing every
   `/v1/systemone` call and falling back to chat for the whole window.

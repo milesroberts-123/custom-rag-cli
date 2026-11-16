@@ -293,8 +293,10 @@ The tissue rules layer reads **structured fields only** (`tissue`,
 `organism part`, `plant structure`, …): Plant Ontology IDs from ENA
 (`PO:0025034` → leaf, via `tissue.po_terms`) take precedence, then configured
 keywords (including plurals such as `leaves` and the `rosette` → leaf
-synonym). Free text in study titles/abstracts is model evidence only — keyword
-hits there were the main source of wrong rule labels in the first window. The
+synonym). Free text in study titles/abstracts, and every `paper_*` field, is
+model evidence only — keyword hits there were the main source of wrong rule
+labels in the first window, and `paper_tissue_sampled`/`paper_genotype` later
+decided 2,278 rule labels until `evidence.is_project_level` filtered them. The
 germplasm rules layer has the same restriction (`germplasm.rule_attribute_keys`:
 genotype, ecotype, cultivar, strain, library name, experiment title), which
 prevents accession-shaped tokens in ENA submitter IDs from labeling transgenic
