@@ -124,10 +124,11 @@ tissue:
       - stem
       - hypocotyl
       - stems
-      # "aerial parts of seedlings" is a shoot system sample; listing it makes
-      # such values hit both shoot and whole_plant (via "seedling") and abstain
-      # rather than being forced into whole_plant.
-      - aerial parts
+      # "aerial part(s) of seedlings" is a shoot system sample; the singular
+      # entry also matches the plural via keyword_pattern, so such values hit
+      # both shoot and whole_plant (via "seedling") and abstain rather than
+      # being forced into whole_plant.
+      - aerial part
     root:
       - root
       - roots

@@ -583,15 +583,19 @@ def test_plural_pattern_does_not_match_inside_other_words():
 
 
 def test_aerial_parts_of_seedlings_abstains():
-    keywords = {**PLURAL_KEYWORDS, "shoot": [*PLURAL_KEYWORDS["shoot"], "aerial parts"]}
-    category = tissue._rules_category(
-        ["plant structure: aerial parts of seedlings"],
-        [*TISSUE_CATEGORIES, "whole_plant"],
-        keywords,
-        {},
-        TISSUE_RULE_KEYS,
-    )
-    assert category is None
+    keywords = {**PLURAL_KEYWORDS, "shoot": [*PLURAL_KEYWORDS["shoot"], "aerial part"]}
+    for value in (
+        "plant structure: aerial parts of seedlings",
+        "tissue: aerial part of seedlings grown on soil",
+    ):
+        category = tissue._rules_category(
+            [value],
+            [*TISSUE_CATEGORIES, "whole_plant"],
+            keywords,
+            {},
+            TISSUE_RULE_KEYS,
+        )
+        assert category is None, value
 
 
 def test_germplasm_plural_patterns_decide():
