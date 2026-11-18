@@ -90,3 +90,23 @@ def test_term_without_evidence_is_still_rejected():
     parsed = {"terms": [{"term_id": "PECO:0007315", "evidence": "  "}]}
     with pytest.raises(ValueError, match="has no evidence"):
         validate_exposure_response(parsed, CANDIDATES, TERMS)
+
+
+# --- degenerate selections ---------------------------------------------------
+# One salt-stress sample returned 28 of 30 candidates with unrelated terms.
+
+from exposure_validation import TooManyTerms, check_term_count  # noqa: E402
+
+
+def test_term_count_accepts_a_normal_selection():
+    check_term_count([{"term_id": "PECO:0007032"}] * 8, 8)
+
+
+def test_term_count_rejects_nearly_the_whole_candidate_list():
+    with pytest.raises(TooManyTerms) as excinfo:
+        check_term_count([{"term_id": "PECO:0007032"}] * 28, 8)
+    assert "28" in str(excinfo.value) and "8" in str(excinfo.value)
+
+
+def test_too_many_terms_is_a_value_error_so_the_retry_loop_catches_it():
+    assert issubclass(TooManyTerms, ValueError)

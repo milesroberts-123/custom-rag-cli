@@ -57,6 +57,12 @@ with `--config benchmark_dir=...` to keep separate filesystem experiments
 | `ena_batch_size` | `100` | BioSample accessions per ENA XML request (the ENA fallback for records NCBI's mirror lacks). Batches split recursively when a request fails. |
 | `max_retries` | `5` | Retry attempts for NCBI requests. |
 
+## `exposure`
+
+| Key | Default | Description |
+|---|---|---|
+| `max_terms` | `8` | Maximum PECO exposure terms accepted from one model response. A larger selection is re-prompted, then falls back to `other: true` with a review flag. |
+
 ## `peco`
 
 | Key | Default | Description |

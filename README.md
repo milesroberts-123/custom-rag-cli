@@ -214,6 +214,10 @@ The workflow follows PECO's actual branches:
 - **Plant exposure** (`PECO:0001001`): 511 terms including cold, high
   temperature, light, drought, control exposure, and growth-medium exposures.
   Retrieval selects candidates, and the chat model can return multiple terms.
+  A response naming more than `exposure.max_terms` (default 8) is treated as
+  degenerate and re-prompted; if it persists the sample falls back to
+  `other: true` and is flagged `exposure_degenerate_terms` for review. One
+  salt-stress sample had selected 28 of 30 candidates with unrelated terms.
 - **Plant study condition** (`PECO:0007231`): four terms — greenhouse study,
   laboratory study, field study, growth chamber study — plus `OTHER`.
 
@@ -292,8 +296,12 @@ The paper's categories, with flower and fruit separated:
 The tissue rules layer reads **structured fields only** (`tissue`,
 `organism part`, `plant structure`, …): Plant Ontology IDs from ENA
 (`PO:0025034` → leaf, via `tissue.po_terms`) take precedence, then configured
-keywords (including plurals such as `leaves` and the `rosette` → leaf
-synonym). Free text in study titles/abstracts, and every `paper_*` field, is
+keywords. Matching is plural-tolerant (`keyword_pattern` appends an optional
+regular plural), so `seedlings` and `hypocotyls` match `seedling` /
+`hypocotyl`; irregular plurals such as `leaves` stay explicit. Values like
+`aerial parts of seedlings` hit both `shoot` and `whole_plant` and abstain
+rather than being forced into one category. The `rosette` → leaf synonym is
+likewise configured. Free text in study titles/abstracts, and every `paper_*` field, is
 model evidence only — keyword hits there were the main source of wrong rule
 labels in the first window, and `paper_tissue_sampled`/`paper_genotype` later
 decided 2,278 rule labels until `evidence.is_project_level` filtered them. The
@@ -332,8 +340,9 @@ measured 14% boilerplate-only samples, and those are 96–100% OTHER/unknown.
 
 Review is gated on model uncertainty only. Review reasons:
 `rna_type_low_confidence`, `tissue_low_confidence`,
-`germplasm_low_confidence`, `exposure_weak_retrieval`, `study_low_confidence`,
-`athrdb_disagreement`, `mixed_run_context`. An `OTHER`/`unknown` label is a
+`germplasm_low_confidence`, `exposure_weak_retrieval`,
+`exposure_degenerate_terms`, `study_low_confidence`, `athrdb_disagreement`,
+`mixed_run_context`. An `OTHER`/`unknown` label is a
 labeling result, not a review trigger: flagging those enqueued 94% of one
 window. Paper availability is reported in the `has_paper`/`paper_low_confidence`
 columns but does not itself trigger review.

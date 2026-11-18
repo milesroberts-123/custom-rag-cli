@@ -103,3 +103,18 @@ def test_retired_reasons_are_dropped_from_old_fragments():
 def test_retired_reasons_helper_handles_empty_values():
     assert aggregate._retire_reasons("") == ""
     assert aggregate._retire_reasons(None) == ""
+
+
+def test_degenerate_exposure_selection_is_flagged():
+    reasons = _reasons(
+        {"tissue": "root", "source": "rules"},
+        {"germplasm_type": "natural_accession", "source": "rules"},
+        {
+            "other": True,
+            "degenerate_terms": True,
+            "max_retrieval_score": 0.9,
+            "terms": [],
+        },
+        {"peco_study_label": "OTHER", "source": "decision", "confidence": 0.9},
+    )
+    assert reasons == ["exposure_degenerate_terms"]

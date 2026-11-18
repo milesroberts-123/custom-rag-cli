@@ -1,5 +1,6 @@
 """Tests for the structured-field restrictions in the tissue/germplasm rules."""
 
+import re
 import sys
 from pathlib import Path
 
@@ -533,3 +534,73 @@ def test_natural_support_ignores_paper_genotype():
     assert not germ._natural_supported(
         ["ecotype: Col-0", "genotype: p6967"], GERM_ACCESSIONS
     )
+
+
+# --- plural keywords ----------------------------------------------------------
+# The lists cannot enumerate every plural: "seedlings" and "hypocotyls" fell
+# through to the model and landed in OTHER for 394 samples.
+
+PLURAL_KEYWORDS = {
+    **TISSUE_KEYWORDS,
+    "shoot": [*TISSUE_KEYWORDS["shoot"], "hypocotyl"],
+    "whole_plant": ["whole plant", "seedling"],
+    "flower": ["inflorescence"],
+}
+
+
+def _plural_category(value):
+    return tissue._rules_category(
+        [value],
+        [*TISSUE_CATEGORIES, "whole_plant", "flower"],
+        PLURAL_KEYWORDS,
+        {},
+        TISSUE_RULE_KEYS,
+    )
+
+
+def test_plural_seedlings_maps_to_whole_plant():
+    assert _plural_category("tissue: seedlings") == "whole_plant"
+    assert _plural_category("plant structure: whole seedlings") == "whole_plant"
+
+
+def test_plural_hypocotyls_maps_to_shoot():
+    assert _plural_category("organism part: hypocotyls") == "shoot"
+
+
+def test_plural_rosettes_maps_to_leaf():
+    assert _plural_category("organism part: rosettes") == "leaf"
+
+
+def test_plural_inflorescences_maps_to_flower():
+    assert _plural_category("organism part: inflorescences") == "flower"
+
+
+def test_plural_pattern_does_not_match_inside_other_words():
+    # "seed" must not match "seedlings", nor "root" match "rooted".
+    assert tissue.keyword_pattern("seed") == r"\bseed(?:e?s)?\b"
+    assert not re.search(tissue.keyword_pattern("seed"), "seedlings", re.IGNORECASE)
+    assert not re.search(tissue.keyword_pattern("root"), "rooted", re.IGNORECASE)
+
+
+def test_aerial_parts_of_seedlings_abstains():
+    keywords = {**PLURAL_KEYWORDS, "shoot": [*PLURAL_KEYWORDS["shoot"], "aerial parts"]}
+    category = tissue._rules_category(
+        ["plant structure: aerial parts of seedlings"],
+        [*TISSUE_CATEGORIES, "whole_plant"],
+        keywords,
+        {},
+        TISSUE_RULE_KEYS,
+    )
+    assert category is None
+
+
+def test_germplasm_plural_patterns_decide():
+    patterns = {
+        "mutant": [r"\bmutant\b", r"\bmutants\b", r"\binsertions\b"],
+        "transgenic": [r"\b35S\b"],
+    }
+    for value in ("genotype: two independent mutants", "genotype: T-DNA insertions"):
+        category, _, _ = germ._rule_label(
+            [value], GERM_ACCESSIONS, patterns, GERM_RULE_KEYS
+        )
+        assert category == "mutant", value

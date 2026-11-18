@@ -51,6 +51,15 @@ properties:
         default: 5
     required:
       - email
+  exposure:
+    type: object
+    properties:
+      max_terms:
+        type: integer
+        minimum: 1
+        default: 8
+        description: Maximum PECO exposure terms accepted from one model response
+    default: {}
   peco:
     type: object
     properties:

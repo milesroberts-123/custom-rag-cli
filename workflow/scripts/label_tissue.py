@@ -89,10 +89,20 @@ def _rules_category(values, categories, keywords, po_terms=None, rule_keys=None)
     hits = []
     for category in categories:
         for keyword in keywords.get(category, []):
-            if re.search(rf"\b{re.escape(keyword)}\b", text, flags=re.IGNORECASE):
+            if re.search(keyword_pattern(keyword), text, flags=re.IGNORECASE):
                 hits.append(category)
                 break
     return hits[0] if len(hits) == 1 else None
+
+
+def keyword_pattern(keyword):
+    """Word-bounded pattern that also matches a regular plural of the keyword.
+
+    The keyword lists cannot enumerate every plural: "seedlings" and
+    "hypocotyls" fell through to the model and landed in OTHER for 394
+    samples. Irregular plurals (leaf/leaves) stay explicit in the config.
+    """
+    return rf"\b{re.escape(keyword)}(?:e?s)?\b"
 
 
 def _state(biosample, summary, values, sample, project):

@@ -73,3 +73,21 @@ def validate_exposure_response(parsed, candidate_ids, term_by_id):
     if not other:
         suggested = ""
     return cleaned, no_condition, other, suggested, conflicts
+
+
+class TooManyTerms(ValueError):
+    """The model selected more exposure terms than the evidence can support."""
+
+
+def check_term_count(terms, max_terms):
+    """Reject a degenerate selection that names most of the candidate list.
+
+    One salt-stress sample returned 28 of 30 retrieved candidates with
+    unrelated terms (cadmium, Xanthomonas, brassinosteroid). The labeler
+    re-prompts on this error and falls back to ``other`` if it persists.
+    """
+    if len(terms) > max_terms:
+        raise TooManyTerms(
+            f"selected {len(terms)} terms; at most {max_terms} are supported. "
+            "Keep only terms grounded in the per-sample evidence."
+        )

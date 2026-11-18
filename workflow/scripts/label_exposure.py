@@ -6,7 +6,11 @@ from pathlib import Path
 
 import numpy as np
 from chunk_runner import run_chunk
-from exposure_validation import validate_exposure_response
+from exposure_validation import (
+    TooManyTerms,
+    check_term_count,
+    validate_exposure_response,
+)
 from sentence_transformers import SentenceTransformer
 
 from evidence import evidence_lines, exposure_evidence, merge_sra
@@ -167,15 +171,17 @@ def _label_one(
         {"role": "user", "content": prompt},
     ]
 
+    max_terms = int(params.get("max_terms", 8))
     last_error = None
     selected = None
+    degenerate = False
     no_condition = False
     other = False
     suggested_label = ""
     conflicts = []
     for _ in range(3):
         try:
-            selected, no_condition, other, suggested_label, conflicts = (
+            terms, terms_no_condition, terms_other, terms_suggested, terms_conflicts = (
                 validate_exposure_response(
                     chat_json(
                         params["server_url"],
@@ -189,6 +195,12 @@ def _label_one(
                     term_by_id,
                 )
             )
+            check_term_count(terms, max_terms)
+            selected = terms
+            no_condition = terms_no_condition
+            other = terms_other
+            suggested_label = terms_suggested
+            conflicts = terms_conflicts
             break
         except ValueError as error:
             last_error = error
@@ -203,7 +215,14 @@ def _label_one(
             )
 
     if selected is None:
-        raise RuntimeError(f"could not label {samn}: {last_error}")
+        if isinstance(last_error, TooManyTerms):
+            # The model kept naming most of the candidate list. Fall back to an
+            # explicit "other" so the sample is reviewable instead of failing.
+            selected, no_condition, other, suggested_label = [], False, True, ""
+            conflicts = ["degenerate_many_terms"]
+            degenerate = True
+        else:
+            raise RuntimeError(f"could not label {samn}: {last_error}")
 
     selected, pruned = prune_ancestors(selected, ancestors)
 
@@ -216,6 +235,7 @@ def _label_one(
         "no_condition": no_condition,
         "other": other,
         "resolved_conflicts": conflicts,
+        "degenerate_terms": degenerate,
         "suggested_label": suggested_label,
         "max_retrieval_score": round(max_score, 4),
         "pruned_ancestors": pruned,

@@ -161,6 +161,11 @@ def _review_reasons(tissue, germplasm, exposure, study, rna_type, athrdb, review
     ):
         reasons.append("exposure_weak_retrieval")
 
+    # A degenerate selection (the model named most of the candidate list) is
+    # uncertainty about the sample's exposures, not a labeling outcome.
+    if exposure.get("degenerate_terms"):
+        reasons.append("exposure_degenerate_terms")
+
     confidence = study.get("confidence")
     if isinstance(confidence, (int, float)) and confidence < float(
         review["study_confidence"]

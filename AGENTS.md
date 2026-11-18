@@ -133,6 +133,15 @@ lint/format/test checks in CI.
 - The Ollama server job checks both `qwen3.8` and `tev1:4b` at startup; a
   missing decision model aborts the job instead of silently 404ing every
   `/v1/systemone` call and falling back to chat for the whole window.
+- Exposure selections are capped by `exposure.max_terms` (default 8). A
+  response naming more terms is re-prompted through the retry loop in
+  `label_exposure`, and a persistent over-selection falls back to
+  `other: true` with `degenerate_terms: true`, which `aggregate` turns into the
+  `exposure_degenerate_terms` review reason. One salt-stress sample selected 28
+  of 30 candidates (cadmium, Xanthomonas, brassinosteroid) before this guard.
+- Tissue keyword matching is plural-tolerant via `label_tissue.keyword_pattern`
+  (`\bkeyword(?:e?s)?\b`); irregular plurals stay explicit in the config.
+  `seedlings`/`hypocotyls` missed every list and put 394 samples in OTHER.
 - The exposure prompt splits per-sample evidence from project-level context
   (study abstract, paper conditions): terms must be grounded in per-sample
   evidence, project text only disambiguates. This stops replicate noise like

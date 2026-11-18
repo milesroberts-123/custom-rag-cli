@@ -27,6 +27,13 @@ ncbi:
   ena_batch_size: 100
   max_retries: 5
 
+exposure:
+  # The exposure model occasionally selects nearly every retrieved candidate
+  # (28 of 30 on one salt-stress sample, with unrelated terms such as cadmium
+  # and Xanthomonas). More terms than this is a degenerate answer and is
+  # re-prompted before the sample falls back to `OTHER`.
+  max_terms: 8
+
 peco:
   url: http://purl.obolibrary.org/obo/peco.owl
   top_k: 30
@@ -117,6 +124,10 @@ tissue:
       - stem
       - hypocotyl
       - stems
+      # "aerial parts of seedlings" is a shoot system sample; listing it makes
+      # such values hit both shoot and whole_plant (via "seedling") and abstain
+      # rather than being forced into whole_plant.
+      - aerial parts
     root:
       - root
       - roots

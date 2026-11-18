@@ -81,6 +81,7 @@ rule label_exposure:
         prjnas=exposure_chunk_prjnas,
         top_k=config["peco"]["top_k"],
         embed_model=config["peco"]["embed_model"],
+        max_terms=config["exposure"]["max_terms"],
     script:
         "../scripts/label_exposure.py"
 
